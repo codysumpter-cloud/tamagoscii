@@ -123,6 +123,33 @@
       if (this.trackIndex < 0 && this.tracks.length) this.trackIndex = 0;
       this._emit();
     }
+    /**
+     * Load tracks from a manifest JSON file (e.g. ./music/tracks.json).
+     * Manifest shape: [{ title, file }] — file is relative to MUSIC_DIR.
+     */
+    async loadManifest(manifestUrl, baseDir){
+      try{
+        const res = await fetch(manifestUrl, { cache:'no-cache' });
+        if (!res.ok) return 0;
+        const data = await res.json();
+        if (!Array.isArray(data)) return 0;
+        let added = 0;
+        data.forEach(entry => {
+          if (!entry || !entry.file) return;
+          const url = (baseDir || '') + entry.file;
+          this.tracks.push({
+            name: entry.title || entry.file.replace(/\.[^.]+$/,''),
+            url,
+          });
+          added++;
+        });
+        if (this.trackIndex < 0 && this.tracks.length) this.trackIndex = 0;
+        this._emit();
+        return added;
+      }catch(e){
+        return 0;
+      }
+    }
     play(){
       if (!this.tracks.length) return;
       if (this.trackIndex < 0) this.trackIndex = 0;

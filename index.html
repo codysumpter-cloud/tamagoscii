@@ -42,9 +42,15 @@
 
     <div class="login-actions" id="login-actions">
       <button id="connect-wallet" class="btn btn-primary">
-        <span class="btn-icon">◈</span> CONNECT XRPL WALLET
+        <span class="btn-icon">◈</span> CONNECT GEMWALLET
       </button>
-      <p class="hint">Your pet's DNA is derived from your XRPL address</p>
+      <p class="hint">
+        XRPL Mainnet · Your pet's DNA is derived from your wallet address
+      </p>
+      <a id="install-gem" class="install-link hidden" target="_blank" rel="noopener">
+        ▸ Install GemWallet
+      </a>
+      <button id="demo-mode" class="btn-link">skip · try demo mode</button>
     </div>
 
     <div class="pseudo-form hidden" id="pseudo-form">
@@ -83,6 +89,7 @@
       <div class="player-profile" id="player-profile">
         <span class="profile-pseudo" id="profile-pseudo">—</span>
         <span class="profile-addr" id="profile-addr">—</span>
+        <span class="profile-network" id="profile-network">—</span>
       </div>
       <div class="age-block">
         <span class="age-label">AGE:</span>
@@ -291,6 +298,8 @@
   </div>
 </template>
 
+<script src="https://unpkg.com/@gemwallet/api@3.8.0/build/iife/index.js"></script>
+<script src="./config.js"></script>
 <script src="./creature.js"></script>
 <script src="./wallet.js"></script>
 <script src="./audio.js"></script>

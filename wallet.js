@@ -1,9 +1,11 @@
 /* ============================================================
-   TAMAGOSCII - XRPL Wallet (mock)
-   Simulates a wallet connection and micro-transactions.
-   If a real provider (e.g. GemWallet, Xumm) is available on
-   window, we try to use it; otherwise we mock locally with
-   deterministic addresses stored in localStorage.
+   TAMAGOSCII - GemWallet integration (XRPL mainnet)
+   ------------------------------------------------------------
+   Primary wallet provider: GemWallet (browser extension).
+   https://gemwallet.app/
+
+   Falls back to a local "demo mode" only if the user explicitly
+   chooses it from the login screen.
 ============================================================ */
 
 (function(){
@@ -11,74 +13,173 @@
 
   const STORAGE_KEY = 'tamagoscii:wallet';
 
-  function randomXRPLAddress(){
-    // Valid-looking rAddress: 25-35 chars base58-ish, starts with r
-    const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let a = 'r';
-    for (let i=0;i<32;i++) a += chars[Math.floor(Math.random()*chars.length)];
-    return a;
+  function xrpToDrops(xrp){
+    return String(Math.round(parseFloat(xrp) * 1_000_000));
   }
-
   function short(addr){
     if (!addr) return '';
     return addr.slice(0,6) + '...' + addr.slice(-4);
   }
 
+  async function waitForGem(timeoutMs = 2000){
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs){
+      if (window.GemWalletApi) return true;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return !!window.GemWalletApi;
+  }
+
+  async function isGemInstalled(){
+    const ok = await waitForGem(1500);
+    if (!ok) return false;
+    try{
+      const res = await window.GemWalletApi.isInstalled();
+      return !!(res && res.result && res.result.isInstalled);
+    }catch(e){
+      return false;
+    }
+  }
+
   class Wallet {
     constructor(){
       this.address = null;
-      this.xrpBalance = 0;
+      this.network = null;
       this.connected = false;
-      this.provider = 'mock';
+      this.provider = null;      // 'gemwallet' | 'demo'
+      this.demoBalance = 100;    // used only in demo mode
     }
+
+    /* ---------------- CONNECT ---------------- */
     async connect(){
-      // Try real providers first (GemWallet)
+      const cfg = window.TAMA_CONFIG;
+      const installed = await isGemInstalled();
+      if (!installed){
+        const err = new Error('GEMWALLET_NOT_INSTALLED');
+        err.installUrl = cfg.GEMWALLET_INSTALL_URL;
+        throw err;
+      }
+
+      // Ask GemWallet for the active address
+      const res = await window.GemWalletApi.getAddress();
+      const address = res && res.result && res.result.address;
+      if (!address) throw new Error('GEMWALLET_REJECTED');
+
+      // Try to get network info (GemWallet >= 3.x)
+      let network = cfg.XRPL_NETWORK;
       try{
-        if (window.GemWalletApi && typeof window.GemWalletApi.isInstalled === 'function'){
-          const installed = await window.GemWalletApi.isInstalled();
-          if (installed && installed.result && installed.result.isInstalled){
-            const addr = await window.GemWalletApi.getAddress();
-            if (addr && addr.result && addr.result.address){
-              this.address = addr.result.address;
-              this.provider = 'GemWallet';
-              this.connected = true;
-              this.xrpBalance = 100;
-              this._save();
-              return this.address;
-            }
+        if (typeof window.GemWalletApi.getNetwork === 'function'){
+          const n = await window.GemWalletApi.getNetwork();
+          if (n && n.result && n.result.network){
+            network = String(n.result.network).toLowerCase();
           }
         }
-      } catch(e){ /* fall through */ }
+      }catch(e){ /* ignore */ }
 
-      // Mock: reuse existing if present, else generate
-      const stored = this._load();
-      if (stored && stored.address){
-        this.address = stored.address;
-        this.xrpBalance = stored.xrpBalance ?? 100;
-      } else {
-        this.address = randomXRPLAddress();
-        this.xrpBalance = 100; // mock balance
-      }
+      this.address = address;
+      this.network = network;
+      this.provider = 'gemwallet';
       this.connected = true;
-      this.provider = 'mock';
+      this._save();
+      return address;
+    }
+
+    async connectDemo(){
+      // Demo mode for local testing without a wallet
+      const stored = this._load();
+      if (stored && stored.address && stored.provider === 'demo'){
+        this.address = stored.address;
+        this.demoBalance = stored.demoBalance ?? 100;
+      } else {
+        this.address = this._generateDemoAddress();
+        this.demoBalance = 100;
+      }
+      this.network = 'demo';
+      this.provider = 'demo';
+      this.connected = true;
       this._save();
       return this.address;
     }
-    async pay(amountXRP, memo){
-      if (!this.connected) throw new Error('Wallet not connected');
-      if (this.xrpBalance < amountXRP){
-        throw new Error('Insufficient XRP balance');
-      }
-      // Simulate a tiny delay like a real tx
-      await new Promise(r=>setTimeout(r, 120));
-      this.xrpBalance = Math.round((this.xrpBalance - amountXRP) * 1e6)/1e6;
-      this._save();
-      const txHash = 'sim_' + Math.random().toString(16).slice(2,10).toUpperCase();
-      return { success:true, hash:txHash, amount:amountXRP, memo };
+
+    _generateDemoAddress(){
+      const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      let a = 'r';
+      for (let i=0; i<32; i++) a += chars[Math.floor(Math.random()*chars.length)];
+      return a;
     }
+
+    /* ---------------- PAYMENT ---------------- */
+    async pay(amountXRP, memo){
+      if (!this.connected) throw new Error('WALLET_NOT_CONNECTED');
+      const cfg = window.TAMA_CONFIG;
+      if (amountXRP <= 0){
+        return { success:true, hash:'free', amount:0, memo };
+      }
+
+      if (this.provider === 'demo'){
+        // Simulate a tx for offline testing
+        if (this.demoBalance < amountXRP){
+          throw new Error('INSUFFICIENT_XRP');
+        }
+        await new Promise(r=>setTimeout(r,120));
+        this.demoBalance = Math.round((this.demoBalance - amountXRP) * 1e6)/1e6;
+        this._save();
+        return {
+          success:true,
+          hash:'demo_'+Math.random().toString(16).slice(2,12).toUpperCase(),
+          amount:amountXRP,
+          memo,
+        };
+      }
+
+      // Real GemWallet payment on mainnet
+      if (!window.GemWalletApi || typeof window.GemWalletApi.sendPayment !== 'function'){
+        throw new Error('GEMWALLET_UNAVAILABLE');
+      }
+
+      const payload = {
+        amount: xrpToDrops(amountXRP),
+        destination: cfg.TREASURY_ADDRESS,
+      };
+      if (cfg.DESTINATION_TAG){
+        payload.destinationTag = cfg.DESTINATION_TAG;
+      }
+      if (memo){
+        payload.memos = [{
+          memo: {
+            memoType: Array.from(new TextEncoder().encode('tamagoscii'))
+              .map(b=>b.toString(16).padStart(2,'0')).join(''),
+            memoData: Array.from(new TextEncoder().encode(String(memo)))
+              .map(b=>b.toString(16).padStart(2,'0')).join(''),
+          }
+        }];
+      }
+
+      const res = await window.GemWalletApi.sendPayment(payload);
+      if (!res || !res.result || !res.result.hash){
+        const e = new Error('TX_REJECTED');
+        throw e;
+      }
+      return {
+        success:true,
+        hash:res.result.hash,
+        amount:amountXRP,
+        memo,
+        explorer: this._explorerUrl(res.result.hash),
+      };
+    }
+
+    _explorerUrl(hash){
+      const cfg = window.TAMA_CONFIG;
+      const base = cfg.XRPL_EXPLORER[cfg.XRPL_NETWORK] || cfg.XRPL_EXPLORER.mainnet;
+      return `${base}/transactions/${hash}`;
+    }
+
+    /* ---------------- PROFILE ---------------- */
     disconnect(){
       this.connected = false;
       this.address = null;
+      this.provider = null;
     }
     setPseudo(p){
       const data = this._load() || {};
@@ -94,7 +195,9 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         ...existing,
         address:this.address,
-        xrpBalance:this.xrpBalance,
+        provider:this.provider,
+        network:this.network,
+        demoBalance:this.demoBalance,
       }));
     }
     _load(){
@@ -105,4 +208,5 @@
 
   window.TamaWallet = new Wallet();
   window.TamaShortAddr = short;
+  window.TamaIsGemInstalled = isGemInstalled;
 })();

@@ -116,6 +116,23 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .connected-addr{font-size:16px;color:var(--muted)}
 .connected-addr span{color:var(--green)}
 .login-footer{margin-top:12px;color:var(--muted);font-size:14px}
+.hidden{display:none !important}
+.install-link{
+  font-family:var(--font-pixel);font-size:10px;color:var(--yellow);
+  text-decoration:none;border:2px dashed var(--yellow);padding:6px 10px;
+  text-shadow:0 0 6px var(--yellow);
+}
+.install-link:hover{background:var(--yellow);color:#000}
+.btn-link{
+  font-family:var(--font-term);font-size:16px;color:var(--muted);
+  text-decoration:underline;background:none;border:none;cursor:pointer;
+  margin-top:4px;
+}
+.btn-link:hover{color:var(--cyan)}
+.profile-network{
+  font-family:var(--font-pixel);font-size:7px;color:var(--green);
+  text-shadow:0 0 4px currentColor;
+}
 
 /* Glitch title */
 .glitch{position:relative}
@@ -198,12 +215,27 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .stage-frame{
   position:relative;
   width:min(380px,86vw);
-  aspect-ratio:1/1.15;
+  aspect-ratio:1/1.25;
   border:3px solid var(--purple);
-  border-radius:50%;
-  background:radial-gradient(ellipse at center,#1d0b3b 0%,#0a0014 100%);
-  box-shadow:0 0 30px rgba(160,61,255,0.5),inset 0 0 30px rgba(160,61,255,0.2);
+  /* Egg silhouette: narrower at top, wider and rounder at bottom */
+  border-radius:50% 50% 50% 50% / 62% 62% 38% 38%;
+  background:radial-gradient(ellipse at 50% 62%,#1d0b3b 0%,#0a0014 100%);
+  box-shadow:
+    0 0 30px rgba(160,61,255,0.5),
+    inset 0 0 30px rgba(160,61,255,0.2),
+    inset 0 -18px 40px rgba(160,61,255,0.15);
   display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.stage-frame::before{
+  /* Pixelated egg highlight */
+  content:"";
+  position:absolute;
+  top:8%;left:22%;
+  width:28%;height:12%;
+  background:rgba(255,255,255,0.08);
+  border-radius:50% / 60%;
+  pointer-events:none;
+  filter:blur(2px);
 }
 .creature{
   font-family:var(--font-term);

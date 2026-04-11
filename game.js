@@ -11,8 +11,13 @@
   const STORAGE_STATE = 'tamagoscii:state';
   const DECAY_INTERVAL = 10_000; // 10s per tick
   const DECAY_RATES = { hunger:2, happy:1.5, energy:1, hygiene:1 };
-  const ACTION_COST_XRP = {
+  // Prices come from window.TAMA_CONFIG so they can be changed in one place.
+  const PRICES = (window.TAMA_CONFIG && window.TAMA_CONFIG.PRICES) || {
     feed:0.01, play:0.02, sleep:0.01, clean:0.01, pet:0,
+  };
+  const ACTION_COST_XRP = {
+    feed:PRICES.feed, play:PRICES.play, sleep:PRICES.sleep,
+    clean:PRICES.clean, pet:PRICES.pet || 0,
   };
   const ACTION_REWARD_COINS = {
     feed:5, play:8, sleep:4, clean:4, pet:2,
@@ -161,6 +166,13 @@
     // Profile
     $('#profile-pseudo').textContent = state.pseudo || 'GUEST';
     $('#profile-addr').textContent = window.TamaShortAddr(window.TamaWallet.address);
+    const netEl = $('#profile-network');
+    if (netEl){
+      const p = window.TamaWallet.provider;
+      const n = window.TamaWallet.network || 'mainnet';
+      netEl.textContent = (p === 'gemwallet' ? '◈ '+n.toUpperCase() : '◈ DEMO');
+      netEl.style.color = (p === 'gemwallet') ? '#4bf58a' : '#f6e24b';
+    }
   }
 
   // ---------- Game ticks ----------
@@ -186,10 +198,13 @@
     const cost = ACTION_COST_XRP[action];
     try{
       if (cost > 0){
-        await window.TamaWallet.pay(cost, 'tamagoscii:'+action);
+        const tx = await window.TamaWallet.pay(cost, 'tamagoscii:'+action);
+        if (tx && tx.hash && !tx.hash.startsWith('demo_') && tx.hash !== 'free'){
+          toast('TX '+tx.hash.slice(0,10)+'…','#4bf58a');
+        }
       }
     }catch(e){
-      toast('TX FAILED: '+e.message, '#ff4b6e');
+      toast('TX FAILED: '+(e.message||'error'), '#ff4b6e');
       window.TamaAudio.sfx('error');
       return;
     }
@@ -466,6 +481,15 @@
   }
 
   // ---------- Login flow ----------
+  function afterConnected(addr){
+    $('#addr-preview').textContent = window.TamaShortAddr(addr);
+    $('#login-actions').classList.add('hidden');
+    $('#pseudo-form').classList.remove('hidden');
+    const stored = window.TamaWallet.getPseudo();
+    if (stored) $('#pseudo-input').value = stored;
+    setTimeout(()=>$('#pseudo-input')?.focus(), 50);
+  }
+
   async function doConnect(){
     window.TamaAudio.sfx('connect');
     const btn = $('#connect-wallet');
@@ -473,15 +497,35 @@
     btn.textContent = 'CONNECTING...';
     try{
       const addr = await window.TamaWallet.connect();
-      $('#addr-preview').textContent = window.TamaShortAddr(addr);
-      $('#login-actions').classList.add('hidden');
-      $('#pseudo-form').classList.remove('hidden');
-      const stored = window.TamaWallet.getPseudo();
-      if (stored) $('#pseudo-input').value = stored;
+      afterConnected(addr);
     }catch(e){
-      toast('CONNECTION FAILED','#ff4b6e');
       btn.disabled = false;
-      btn.innerHTML = '<span class="btn-icon">◈</span> CONNECT XRPL WALLET';
+      btn.innerHTML = '<span class="btn-icon">◈</span> CONNECT GEMWALLET';
+      window.TamaAudio.sfx('error');
+      if (e && e.message === 'GEMWALLET_NOT_INSTALLED'){
+        toast('GEMWALLET NOT INSTALLED','#ff4b6e');
+        const link = $('#install-gem');
+        if (link){
+          link.href = (window.TAMA_CONFIG && window.TAMA_CONFIG.GEMWALLET_INSTALL_URL)
+            || 'https://gemwallet.app/';
+          link.classList.remove('hidden');
+        }
+      } else if (e && e.message === 'GEMWALLET_REJECTED'){
+        toast('CONNECTION REJECTED','#ff4b6e');
+      } else {
+        toast('CONNECTION FAILED','#ff4b6e');
+      }
+    }
+  }
+
+  async function doConnectDemo(){
+    window.TamaAudio.sfx('connect');
+    try{
+      const addr = await window.TamaWallet.connectDemo();
+      toast('DEMO MODE — NOT ON-CHAIN','#f6e24b');
+      afterConnected(addr);
+    }catch(e){
+      toast('DEMO INIT FAILED','#ff4b6e');
     }
   }
 
@@ -518,6 +562,13 @@
     if (decayTimer) clearInterval(decayTimer);
     decayTimer = setInterval(tick, DECAY_INTERVAL);
 
+    // Reflect configured prices on action buttons
+    $$('.action').forEach(btn=>{
+      const a = btn.dataset.action;
+      const cost = ACTION_COST_XRP[a];
+      const label = btn.querySelector('.action-cost');
+      if (label) label.textContent = (cost > 0) ? (cost + ' XRP') : 'FREE';
+    });
     // Action buttons
     $$('.action').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -546,7 +597,19 @@
   // ---------- Bootstrap ----------
   function init(){
     setupAudioBar();
+
+    // Auto-load the music manifest from ./music/tracks.json (if any).
+    const cfg = window.TAMA_CONFIG || {};
+    if (cfg.MUSIC_MANIFEST){
+      window.TamaAudio.loadManifest(cfg.MUSIC_MANIFEST, cfg.MUSIC_DIR).then(n=>{
+        if (n > 0){
+          toast('LOADED '+n+' TRACK'+(n>1?'S':''),'#4bf58a');
+        }
+      });
+    }
+
     $('#connect-wallet').addEventListener('click', doConnect);
+    $('#demo-mode')?.addEventListener('click', doConnectDemo);
     $('#confirm-pseudo').addEventListener('click', doConfirmPseudo);
     $('#pseudo-input')?.addEventListener('keydown', e=>{
       if (e.key === 'Enter') doConfirmPseudo();
