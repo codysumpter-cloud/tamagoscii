@@ -73,6 +73,44 @@
     localStorage.setItem(STORAGE_STATE, JSON.stringify(state));
   }
 
+  // ---------- Backend sync (optional) ----------
+  // If API_BASE_URL is set, POST the current state to the backend
+  // so leaderboard and OG share images stay up to date. Debounced.
+  let _syncTimer = null;
+  function queueBackendSync(){
+    const cfg = window.TAMA_CONFIG || {};
+    if (!cfg.API_BASE_URL) return;
+    if (!window.TamaWallet?.address) return;
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(doBackendSync, 2000);
+  }
+  async function doBackendSync(){
+    const cfg = window.TAMA_CONFIG || {};
+    if (!cfg.API_BASE_URL) return;
+    const addr = window.TamaWallet?.address;
+    if (!addr) return;
+    try{
+      await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/api/creature/' + encodeURIComponent(addr), {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          pseudo: state.pseudo,
+          score:  state.score,
+          coins:  state.coins,
+          level:  state.level,
+          state: {
+            hunger:state.hunger, happy:state.happy,
+            energy:state.energy, hygiene:state.hygiene,
+            mood:  state.mood,   birth: state.birth,
+            creatureProfile: state.creatureProfile,
+          },
+        }),
+      });
+    }catch(e){
+      // fail silently — the game still works offline
+    }
+  }
+
   // ---------- Helpers ----------
   const $ = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
@@ -93,21 +131,81 @@
     void el.offsetWidth;
     el.classList.add('show');
   }
-  function spawnParticle(char, color){
+  function spawnParticle(char, color, opts = {}){
     const container = $('#particles');
+    if (!container) return;
     const p = document.createElement('div');
     p.className = 'particle';
     p.textContent = char;
     if (color) p.style.color = color;
     const rect = container.getBoundingClientRect();
-    const x = Math.random()*rect.width*0.7 + rect.width*0.15;
-    const y = rect.height*0.6 + Math.random()*20;
+    const x = (opts.x != null ? opts.x : Math.random()*rect.width*0.7 + rect.width*0.15);
+    const y = (opts.y != null ? opts.y : rect.height*0.55 + Math.random()*20);
     p.style.left = x+'px';
     p.style.top = y+'px';
-    p.style.setProperty('--dx', (Math.random()*80-40)+'px');
-    p.style.setProperty('--dy', -(40+Math.random()*50)+'px');
+    const dx = (opts.dx != null ? opts.dx : (Math.random()*120 - 60));
+    const dy = (opts.dy != null ? opts.dy : -(50 + Math.random()*60));
+    p.style.setProperty('--dx', dx + 'px');
+    p.style.setProperty('--dy', dy + 'px');
+    if (opts.size) p.style.fontSize = opts.size + 'px';
     container.appendChild(p);
     setTimeout(()=>p.remove(), 1600);
+  }
+  /* Radial burst of particles from the centre of the stage. */
+  function burstParticles(chars, colors, count = 14){
+    const container = $('#particles');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    for (let i = 0; i < count; i++){
+      const angle = (Math.PI * 2 * i) / count + Math.random()*0.3;
+      const dist  = 60 + Math.random()*50;
+      spawnParticle(
+        chars[Math.floor(Math.random()*chars.length)],
+        colors[Math.floor(Math.random()*colors.length)],
+        {
+          x: cx, y: cy,
+          dx: Math.cos(angle) * dist,
+          dy: Math.sin(angle) * dist - 20,
+          size: 18 + Math.random()*14,
+        }
+      );
+    }
+  }
+  /* Confetti rain from the top on a level-up. */
+  function confettiRain(){
+    const container = $('#particles');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const colors = ['#ff2d7a','#f6e24b','#36e0f5','#4bf58a','#c66dff','#ff8c38'];
+    const chars  = ['★','✦','♦','♥','▲','●','✸'];
+    for (let i = 0; i < 22; i++){
+      const p = document.createElement('div');
+      p.className = 'particle confetti';
+      p.textContent = chars[Math.floor(Math.random()*chars.length)];
+      p.style.color = colors[Math.floor(Math.random()*colors.length)];
+      p.style.left = (Math.random()*rect.width) + 'px';
+      p.style.top = (-10 - Math.random()*20) + 'px';
+      p.style.setProperty('--dx', (Math.random()*80 - 40) + 'px');
+      p.style.setProperty('--dy', (rect.height + 40) + 'px');
+      p.style.fontSize = (16 + Math.random()*14) + 'px';
+      p.style.animationDuration = (1.4 + Math.random()*0.8) + 's';
+      container.appendChild(p);
+      setTimeout(()=>p.remove(), 2400);
+    }
+  }
+  /* Ripple ring at click location inside the stage. */
+  function spawnRipple(x, y, color){
+    const container = $('#particles');
+    if (!container) return;
+    const r = document.createElement('div');
+    r.className = 'stage-ripple';
+    r.style.left = x + 'px';
+    r.style.top  = y + 'px';
+    if (color) r.style.borderColor = color;
+    container.appendChild(r);
+    setTimeout(()=>r.remove(), 700);
   }
   function formatAge(ms){
     const s = Math.floor(ms/1000);
@@ -195,6 +293,7 @@
     saveState();
     render();
     checkAchievements();
+    queueBackendSync();
     // Ambient reaction on poor state
     if (avg < 25) window.TamaAudio.sfx('sad');
   }
@@ -223,8 +322,9 @@
         state.happy  = clamp(state.happy  + (f.happy||0), 0, 100);
         if (f.hygiene) state.hygiene = clamp(state.hygiene + f.hygiene, 0, 100);
         if (f.energy)  state.energy  = clamp(state.energy  + f.energy,  0, 100);
-        spawnParticle('✦','#f6e24b'); spawnParticle('♦','#ff2d7a'); spawnParticle('♥','#ff2d7a');
-        el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce');
+        burstParticles(['✦','♦','♥','★','•'], ['#f6e24b','#ff2d7a','#ff8c38'], 16);
+        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
+        el.classList.add('bounce');
         floatText('+'+f.hunger+' HUNGER','#ff2d7a');
         window.TamaAudio.sfx('feed');
         unlock('first_feed');
@@ -234,8 +334,9 @@
         state.happy = clamp(state.happy + 20, 0, 100);
         state.energy = clamp(state.energy - 8, 0, 100);
         state.hygiene = clamp(state.hygiene - 3, 0, 100);
-        ['★','✦','♪','♫'].forEach(c=>spawnParticle(c,'#f6e24b'));
-        el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce');
+        burstParticles(['★','✦','♪','♫','✸','◆'], ['#f6e24b','#36e0f5','#c66dff'], 18);
+        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
+        el.classList.add('joy');
         floatText('+20 HAPPY','#f6e24b');
         window.TamaAudio.sfx('play');
         unlock('first_play');
@@ -244,7 +345,9 @@
       case 'sleep':{
         state.energy = clamp(state.energy + 40, 0, 100);
         state.happy  = clamp(state.happy - 3, 0, 100);
-        ['z','Z','z'].forEach(c=>spawnParticle(c,'#36e0f5'));
+        for (let i=0;i<5;i++){
+          setTimeout(()=>spawnParticle('z','#36e0f5',{size:22+i*4}), i*120);
+        }
         floatText('+40 ENERGY','#36e0f5');
         window.TamaAudio.sfx('sleep');
         break;
@@ -252,7 +355,7 @@
       case 'clean':{
         state.hygiene = clamp(state.hygiene + 40, 0, 100);
         state.happy = clamp(state.happy - 2, 0, 100);
-        ['~','*','•'].forEach(c=>spawnParticle(c,'#4bf58a'));
+        burstParticles(['~','*','•','✧','◌'], ['#4bf58a','#36e0f5','#7dffcf'], 14);
         floatText('+40 HYGIENE','#4bf58a');
         window.TamaAudio.sfx('clean');
         if (state.hygiene >= 100) unlock('clean_freak');
@@ -261,8 +364,12 @@
       case 'pet':{
         state.happy = clamp(state.happy + 6, 0, 100);
         petCount++;
-        ['♥','♥','♥'].forEach(c=>spawnParticle(c,'#ff2d7a'));
-        el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce');
+        burstParticles(['♥','♡','❤','ᨳ'], ['#ff2d7a','#ff4b9c','#c66dff'], 10);
+        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
+        el.classList.add('bounce');
+        const frame = $('#stage-frame');
+        frame?.classList.remove('pulse-happy'); void frame?.offsetWidth;
+        frame?.classList.add('pulse-happy');
         floatText('+6 HAPPY','#ff2d7a');
         window.TamaAudio.sfx('pet');
         if (petCount >= 20) unlock('lover');
@@ -293,6 +400,10 @@
       state.level++;
       toast('LEVEL UP! LV.'+state.level,'#f6e24b');
       window.TamaAudio.sfx('levelup');
+      confettiRain();
+      const frame = $('#stage-frame');
+      frame?.classList.remove('pulse-happy'); void frame?.offsetWidth;
+      frame?.classList.add('pulse-happy');
       if (state.level >= 5) unlock('lvl5');
       if (state.level >= 10) unlock('lvl10');
     }
@@ -300,6 +411,7 @@
     saveState();
     render();
     checkAchievements();
+    queueBackendSync();
   }
 
   // ---------- Achievements ----------
@@ -408,12 +520,21 @@
       ACHIEVEMENTS.forEach(a=>{
         const li = document.createElement('li');
         if (state.achievements[a.id]) li.classList.add('unlocked');
-        li.innerHTML = `
-          <span class="ach-icon">${a.icon}</span>
-          <div class="ach-info">
-            <span class="ach-name">${a.name}</span>
-            <span class="ach-desc">${a.desc}</span>
-          </div>`;
+        const icon = document.createElement('span');
+        icon.className = 'ach-icon';
+        icon.textContent = a.icon;
+        const info = document.createElement('div');
+        info.className = 'ach-info';
+        const name = document.createElement('span');
+        name.className = 'ach-name';
+        name.textContent = a.name;
+        const desc = document.createElement('span');
+        desc.className = 'ach-desc';
+        desc.textContent = a.desc;
+        info.appendChild(name);
+        info.appendChild(desc);
+        li.appendChild(icon);
+        li.appendChild(info);
         list.appendChild(li);
       });
     });
@@ -421,85 +542,297 @@
 
   function openMinigame(){
     openModal('tpl-minigame', node=>{
-      const arena = node.querySelector('#mg-arena');
-      const timeEl = node.querySelector('#mg-time');
-      const scoreEl = node.querySelector('#mg-score');
+      const arena    = node.querySelector('#mg-arena');
+      const timeEl   = node.querySelector('#mg-time');
+      const scoreEl  = node.querySelector('#mg-score');
+      const streakEl = node.querySelector('#mg-streak');
       const startBtn = node.querySelector('#mg-start');
-      let score = 0, t = 10, tg = null, tick = null;
-      function spawn(){
-        arena.innerHTML = '';
-        const el = document.createElement('div');
-        el.className = 'mg-target';
-        const rect = arena.getBoundingClientRect();
-        const x = Math.random()*(rect.width-28);
-        const y = Math.random()*(rect.height-28);
-        el.style.left = x+'px';
-        el.style.top = y+'px';
-        el.onclick = (e)=>{
-          e.stopPropagation();
-          score++;
-          scoreEl.textContent = score;
-          window.TamaAudio.sfx('coin');
-          spawn();
-        };
-        arena.appendChild(el);
+
+      const TOTAL_TIME = 20;
+      const SPAWN_MIN = 550;   // ms between spawns (faster at end)
+      const SPAWN_MAX = 950;
+      const EGG_LIFE  = 2400;  // ms before an egg hatches and disappears
+      const GOLD_CHANCE = 0.12;
+      const MAX_EGGS = 4;
+
+      let score = 0;
+      let streak = 0;
+      let bestStreak = 0;
+      let normalSmashed = 0;
+      let goldSmashed = 0;
+      let timeLeft = TOTAL_TIME;
+      let tickInterval = null;
+      let spawnTimeout = null;
+      let running = false;
+
+      function pickSpawnDelay(){
+        // Get faster as time runs out
+        const factor = Math.max(0.4, timeLeft / TOTAL_TIME);
+        return SPAWN_MIN + Math.random() * (SPAWN_MAX - SPAWN_MIN) * factor;
       }
-      startBtn.onclick = ()=>{
-        score = 0; t = 10;
-        timeEl.textContent = t;
-        scoreEl.textContent = score;
-        startBtn.disabled = true;
-        spawn();
-        tick = setInterval(()=>{
-          t--;
-          timeEl.textContent = t;
-          if (t <= 0){
-            clearInterval(tick);
-            arena.innerHTML = '';
-            startBtn.disabled = false;
-            const reward = score * 3;
-            state.coins += reward;
-            saveState(); render();
-            toast('+'+reward+' ⬢ SCII','#f6e24b');
-            if (score > 0) unlock('minigame');
-          }
-        },1000);
-      };
+
+      function spawnEgg(){
+        if (!running) return;
+        if (arena.querySelectorAll('.mg-egg').length >= MAX_EGGS){
+          scheduleSpawn();
+          return;
+        }
+        const egg = document.createElement('div');
+        const isGold = Math.random() < GOLD_CHANCE;
+        egg.className = 'mg-egg' + (isGold ? ' gold' : '');
+        const body = document.createElement('div');
+        body.className = 'egg-body';
+        egg.appendChild(body);
+
+        const rect = arena.getBoundingClientRect();
+        const pad = 40;
+        const x = pad + Math.random() * (rect.width  - pad*2);
+        const y = pad + Math.random() * (rect.height - pad*2);
+        egg.style.left = x + 'px';
+        egg.style.top  = y + 'px';
+
+        // Vanish timer (missed)
+        const vanishTimer = setTimeout(()=>{
+          if (!egg.isConnected) return;
+          egg.classList.add('vanish');
+          streak = 0;
+          streakEl.textContent = streak;
+          setTimeout(()=>egg.remove(), 400);
+        }, EGG_LIFE);
+
+        egg.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          clearTimeout(vanishTimer);
+          if (egg.classList.contains('smashed')) return;
+
+          const points = isGold ? 5 : 1;
+          score += points;
+          streak += 1;
+          bestStreak = Math.max(bestStreak, streak);
+          if (isGold) goldSmashed++; else normalSmashed++;
+
+          scoreEl.textContent = score;
+          streakEl.textContent = streak;
+
+          // Visual feedback
+          egg.classList.add('smashed');
+          spawnCrackFX(x, y, isGold);
+          spawnRipple(x, y, isGold);
+          spawnScorePop(x, y, '+' + points, isGold);
+          window.TamaAudio.sfx(isGold ? 'levelup' : 'coin');
+
+          setTimeout(()=>egg.remove(), 500);
+        });
+
+        arena.appendChild(egg);
+        scheduleSpawn();
+      }
+
+      function scheduleSpawn(){
+        if (!running) return;
+        clearTimeout(spawnTimeout);
+        spawnTimeout = setTimeout(spawnEgg, pickSpawnDelay());
+      }
+
+      function spawnCrackFX(x, y, gold){
+        const chars = gold ? ['✦','★','✦','♦','★'] : ['✦','✸','*','•','✦'];
+        for (let i = 0; i < 8; i++){
+          const p = document.createElement('div');
+          p.className = 'mg-crack' + (gold ? ' gold' : '');
+          p.textContent = chars[Math.floor(Math.random()*chars.length)];
+          p.style.left = x + 'px';
+          p.style.top  = y + 'px';
+          const angle = (Math.PI * 2 * i) / 8 + Math.random()*0.5;
+          const dist  = 40 + Math.random()*30;
+          p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+          p.style.setProperty('--dy', (Math.sin(angle) * dist - 20) + 'px');
+          arena.appendChild(p);
+          setTimeout(()=>p.remove(), 750);
+        }
+      }
+      function spawnRipple(x, y, gold){
+        const r = document.createElement('div');
+        r.className = 'mg-ripple' + (gold ? ' gold' : '');
+        r.style.left = x + 'px';
+        r.style.top  = y + 'px';
+        arena.appendChild(r);
+        setTimeout(()=>r.remove(), 550);
+      }
+      function spawnScorePop(x, y, text, gold){
+        const p = document.createElement('div');
+        p.className = 'mg-score-pop' + (gold ? ' gold' : '');
+        p.textContent = text;
+        p.style.left = x + 'px';
+        p.style.top  = y + 'px';
+        arena.appendChild(p);
+        setTimeout(()=>p.remove(), 950);
+      }
+
+      function endGame(){
+        running = false;
+        clearInterval(tickInterval);
+        clearTimeout(spawnTimeout);
+        // Clear remaining eggs
+        arena.querySelectorAll('.mg-egg').forEach(e => e.remove());
+        arena.classList.remove('playing');
+
+        const reward = score * 3;
+        state.coins += reward;
+        saveState(); render();
+        queueBackendSync();
+        if (score > 0) unlock('minigame');
+
+        // Game over overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'mg-gameover';
+        const title = document.createElement('div');
+        title.className = 'mg-gameover-title';
+        title.textContent = 'TIME UP!';
+        const reward_el = document.createElement('div');
+        reward_el.className = 'mg-gameover-reward';
+        reward_el.textContent = '+' + reward + ' ⬢ SCII';
+        const breakdown = document.createElement('div');
+        breakdown.className = 'mg-gameover-breakdown';
+        breakdown.textContent = `${normalSmashed} normal · ${goldSmashed} gold · best streak ${bestStreak}`;
+        overlay.appendChild(title);
+        overlay.appendChild(reward_el);
+        overlay.appendChild(breakdown);
+        arena.appendChild(overlay);
+
+        startBtn.textContent = 'PLAY AGAIN';
+        startBtn.disabled = false;
+        startBtn.classList.remove('hidden');
+        window.TamaAudio.sfx('levelup');
+      }
+
+      startBtn.addEventListener('click', ()=>{
+        // Reset state
+        score = 0; streak = 0; bestStreak = 0;
+        normalSmashed = 0; goldSmashed = 0;
+        timeLeft = TOTAL_TIME;
+        scoreEl.textContent = '0';
+        streakEl.textContent = '0';
+        timeEl.textContent = String(TOTAL_TIME);
+        arena.querySelectorAll('.mg-egg, .mg-gameover').forEach(e => e.remove());
+        arena.classList.add('playing');
+        startBtn.classList.add('hidden');
+        running = true;
+        window.TamaAudio.sfx('boot');
+
+        tickInterval = setInterval(()=>{
+          timeLeft--;
+          timeEl.textContent = String(Math.max(0, timeLeft));
+          if (timeLeft <= 0) endGame();
+        }, 1000);
+        scheduleSpawn();
+      });
+
+      // Cleanup on modal close
+      const closeBtn = node.querySelector('.modal-close');
+      closeBtn.addEventListener('click', ()=>{
+        running = false;
+        clearInterval(tickInterval);
+        clearTimeout(spawnTimeout);
+      });
     });
   }
 
   // ---------- Audio bar wiring ----------
+  function renderPlaylist(){
+    const audio = window.TamaAudio;
+    const list = $('#playlist-items');
+    const countEl = $('#playlist-count');
+    if (!list) return;
+    list.innerHTML = '';
+    if (countEl) countEl.textContent = audio.tracks.length;
+    if (!audio.tracks.length){
+      const empty = document.createElement('li');
+      empty.className = 'playlist-empty';
+      empty.textContent = '— NO TRACKS LOADED —';
+      list.appendChild(empty);
+      return;
+    }
+    audio.tracks.forEach((t, i)=>{
+      const li = document.createElement('li');
+      if (i === audio.trackIndex) li.classList.add('active');
+      const idx = document.createElement('span');
+      idx.className = 'plist-idx';
+      idx.textContent = String(i+1).padStart(2,'0');
+      const title = document.createElement('span');
+      title.className = 'plist-title';
+      title.textContent = t.name;
+      const playing = document.createElement('span');
+      playing.className = 'plist-playing';
+      playing.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>';
+      li.appendChild(idx);
+      li.appendChild(title);
+      li.appendChild(playing);
+      li.addEventListener('click', ()=>{
+        audio.trackIndex = i;
+        audio.play();
+        window.TamaAudio.sfx('click');
+      });
+      list.appendChild(li);
+    });
+  }
+
   function setupAudioBar(){
     const audio = window.TamaAudio;
+    const bar = $('#audio-bar');
+    const playIcon  = $('#audio-play .icon-play');
+    const pauseIcon = $('#audio-play .icon-pause');
+    const sfxOn  = $('#sfx-toggle .icon-sfx-on');
+    const sfxOff = $('#sfx-toggle .icon-sfx-off');
+
     audio.onUpdate(()=>{
       const name = audio.currentTrackName();
-      $('#track-title').textContent = name ? name.toUpperCase() : '— LOAD YOUR MUSIC (♪+) —';
-      $('#audio-play').textContent = audio.playing ? '⏸' : '▶';
+      $('#track-title').textContent = name ? name.toUpperCase() : '— NO TRACK —';
+      // Swap play/pause icons
+      if (audio.playing){
+        playIcon?.classList.add('hidden');
+        pauseIcon?.classList.remove('hidden');
+      } else {
+        playIcon?.classList.remove('hidden');
+        pauseIcon?.classList.add('hidden');
+      }
       if (audio.audio.duration){
         const pct = (audio.audio.currentTime / audio.audio.duration) * 100;
         $('#track-progress-fill').style.width = pct+'%';
       } else {
         $('#track-progress-fill').style.width = '0%';
       }
+      // Re-render playlist highlight
+      const items = $('#playlist-items')?.querySelectorAll('li');
+      if (items){
+        items.forEach((li, i)=>{
+          li.classList.toggle('active', i === audio.trackIndex);
+        });
+      }
     });
     $('#audio-play').addEventListener('click', ()=>audio.toggle());
     $('#audio-next').addEventListener('click', ()=>audio.next());
     $('#audio-prev').addEventListener('click', ()=>audio.prev());
-    $('#volume').addEventListener('input', (e)=>audio.setVolume(e.target.value/100));
-    $('#audio-file').addEventListener('change', (e)=>{
-      if (e.target.files?.length){
-        audio.loadTracks(e.target.files);
-        audio.play();
-        toast('MUSIC LOADED','#4bf58a');
-      }
-    });
     $('#sfx-toggle').addEventListener('click', ()=>{
       audio.setSfxEnabled(!audio.sfxEnabled);
-      $('#sfx-toggle').textContent = audio.sfxEnabled ? '🔊' : '🔇';
+      if (audio.sfxEnabled){
+        sfxOn?.classList.remove('hidden');
+        sfxOff?.classList.add('hidden');
+      } else {
+        sfxOn?.classList.add('hidden');
+        sfxOff?.classList.remove('hidden');
+      }
       toast('SFX '+(audio.sfxEnabled?'ON':'OFF'),'#36e0f5');
     });
+    $('#audio-expand').addEventListener('click', ()=>{
+      bar.classList.toggle('expanded');
+      window.TamaAudio.sfx('click');
+      if (bar.classList.contains('expanded')) renderPlaylist();
+    });
+    // Fixed default volume — users no longer control it from the UI
     audio.setVolume(0.6);
     audio._emit();
+    // Render playlist once after manifest loads
+    setTimeout(renderPlaylist, 1200);
   }
 
   // ---------- Login flow ----------
@@ -624,7 +957,12 @@
     state = loaded;
 
     // Seed creature from wallet address (deterministic)
-    const seedParam = (new URLSearchParams(window.location.hash.slice(1))).get('seed');
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const seedParam = hashParams.get('seed');
+    const sharedPseudo = hashParams.get('pseudo');
+    if (sharedPseudo && !state.pseudo){
+      state.pseudo = sharedPseudo;
+    }
     const seed = seedParam || window.TamaWallet.address;
     creature = new window.TamaCreature(seed);
     state.creatureProfile = creature.getProfile();
@@ -669,7 +1007,12 @@
       });
     });
     // Stage click = pet interaction
-    $('#stage-frame').addEventListener('click', ()=>doAction('pet'));
+    $('#stage-frame').addEventListener('click', (e)=>{
+      // Ripple at click position inside the stage
+      const rect = $('#stage-frame').getBoundingClientRect();
+      spawnRipple(e.clientX - rect.left, e.clientY - rect.top, creature?.color?.main || '#fff');
+      doAction('pet');
+    });
     // Fun buttons
     $('#btn-shop').addEventListener('click', openShop);
     $('#btn-share').addEventListener('click', openShare);
