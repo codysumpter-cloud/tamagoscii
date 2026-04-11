@@ -1,0 +1,24 @@
+# Don't deploy the backend folder to Vercel — it's a separate
+# Node.js service meant for Railway/Fly.io/VPS. Its package.json
+# would otherwise confuse Vercel's framework auto-detection.
+backend/
+
+# Never ship env files or databases
+.env
+.env.*
+*.sqlite
+*.sqlite3
+*.db
+
+# Dev / build artefacts
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+Thumbs.db
+
+# Repo-only files (not needed in the live app)
+deploy.sh
+docs/
+SETUP.md
