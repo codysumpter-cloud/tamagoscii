@@ -260,14 +260,13 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 }
 
 /* ============ GAME LAYOUT ============
-   The egg is a fixed, full-screen background. All UI elements
-   (HUD, stats, info-row, controls) float on top with dark
-   translucent backgrounds. */
+   .screen already has position:fixed + inset:0 so #game-screen
+   fills the viewport. We keep overflow:hidden to clip the big
+   glowing egg that sits behind everything. */
 #game-screen{
   padding:0;
   gap:0;
   overflow:hidden;
-  position:relative;
 }
 
 .glass{
@@ -417,8 +416,9 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .info-level    { color:var(--yellow); text-shadow:0 0 6px var(--yellow); }
 .info-sep      { color:var(--muted); font-size:14px; }
 
-/* Spacer makes the stage-frame extend down to meet the controls */
-.stage-spacer{ flex:1; min-height: 80px; position:relative; z-index:1; }
+/* Spacer — was used for flex layout, kept for backward compat but
+   no longer required now that the controls are fixed to the bottom. */
+.stage-spacer{ display:none; }
 
 /* ============ STAGE / EGG ============
    The egg is positioned absolutely and fills most of the
@@ -618,17 +618,23 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .creature-name{ display:none; }
 
 /* ============ CONTROLS OVERLAY ============
-   The actions and food rows sit on top of the egg in the lower
-   portion of the screen, with dark glass backgrounds. */
+   Actions and food rows are PINNED just above the audio bar at
+   the bottom of the viewport. Their container is transparent
+   and pointer-events:none so clicks pass through empty space,
+   while each child still captures its own events. */
 .controls-overlay{
-  position: relative;
-  z-index: 10;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 72px; /* leave room for the audio bar (desktop height) */
+  z-index: 15;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px 78px; /* bottom padding clears audio bar */
-  margin-top: auto;
+  gap: 6px;
+  padding: 0 12px 0;
+  pointer-events: none;
 }
+.controls-overlay > * { pointer-events: auto; }
 
 .actions,
 .food-selector{
@@ -709,33 +715,44 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   transform: scale(1.04);
 }
 
-/* ============ AUDIO PLAYER ============ */
+/* ============ AUDIO PLAYER ============
+   Transparent bar — the egg needs to be visible through it.
+   The individual buttons and the track-title still have their
+   own contrast so they remain readable. */
 .audio-bar{
   position:fixed; left:0; right:0; bottom:0; z-index:50;
-  background:linear-gradient(180deg,#0a0320 0%,#05000f 100%);
-  border-top:2px solid var(--purple);
-  box-shadow:0 -8px 28px rgba(160,61,255,.45);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: 1px solid rgba(160, 61, 255, 0.35);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.35);
   transition: transform .25s ease;
+  pointer-events: none;
 }
+.audio-bar > * { pointer-events: auto; }
 .audio-main{
   display:flex; align-items:center; gap:8px;
-  padding:10px 12px;
+  padding:8px 12px;
 }
 .audio-btn{
-  background:transparent;
+  /* Solid dark background so the button is readable over the egg */
+  background: rgba(5, 0, 20, 0.72);
   color:var(--fg);
-  border:none;
+  border:1px solid rgba(160, 61, 255, 0.35);
   width:38px; height:38px;
-  border-radius:8px;
+  border-radius:10px;
   display:flex; align-items:center; justify-content:center;
-  transition: background .15s, color .15s, transform .1s;
+  transition: background .15s, color .15s, transform .1s, border-color .15s;
   position:relative;
   flex-shrink:0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .audio-btn svg{ width:22px; height:22px; display:block; }
 .audio-btn:hover{
-  background:rgba(160,61,255,0.25);
-  color:var(--cyan);
+  background: rgba(160, 61, 255, 0.35);
+  color: var(--cyan);
+  border-color: var(--cyan);
 }
 .audio-btn:active{ transform:scale(0.92); }
 .audio-btn.audio-btn-lg{
@@ -754,12 +771,18 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .track-info{
   flex:1; min-width:0;
   display:flex; flex-direction:column;
-  gap:4px; padding:0 6px;
+  gap:4px;
+  padding: 6px 12px;
+  background: rgba(5, 0, 20, 0.72);
+  border: 1px solid rgba(160, 61, 255, 0.35);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .track-title{
   font-family:var(--font-pixel); font-size:9px;
   color:var(--yellow);
-  text-shadow:0 0 4px rgba(246,226,75,0.5);
+  text-shadow:0 0 6px rgba(246,226,75,0.7);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   letter-spacing:1px;
 }
@@ -787,7 +810,10 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   max-height:0;
   overflow:hidden;
   transition: max-height .3s ease;
-  background:rgba(10,0,30,0.6);
+  background: rgba(5, 0, 20, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(160, 61, 255, 0.35);
 }
 .audio-bar.expanded .audio-playlist{
   max-height:260px;
@@ -1182,7 +1208,7 @@ button{cursor:pointer;background:none;border:none;color:inherit}
     width: min(96vw, 460px);
     height: min(72vh, 620px);
   }
-  .controls-overlay{ padding:8px 10px 72px; gap:6px; }
+  .controls-overlay{ bottom: 62px; padding: 0 10px; gap:6px; }
   .actions, .food-selector{ padding:6px; gap:5px; }
   .action, .food-item{ height:58px; }
   .action-icon{ font-size:20px; }
@@ -1190,7 +1216,7 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   .action-cost{ display:none; }
   .food-item{ font-size:24px; }
   .audio-bar{ padding:0; }
-  .audio-main{ padding:8px 10px; gap:6px; }
+  .audio-main{ padding:6px 10px; gap:6px; }
   .audio-btn{ width:34px; height:34px; }
   .audio-btn.audio-btn-lg{ width:42px; height:42px; }
   .title-en{ font-size:32px; }
