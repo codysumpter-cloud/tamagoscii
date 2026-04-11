@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta name="theme-color" content="#0a0014" />
+<title>Tamagoscii - タマゴッシー | ASCII Pixel Pet</title>
+<meta name="description" content="Tamagoscii (タマゴッシー) - A retro ASCII & Pixel art virtual pet powered by XRPL. Feed, play and grow your digital creature!" />
+<meta property="og:title" content="Tamagoscii - タマゴッシー" />
+<meta property="og:description" content="My ASCII pixel pet lives on the XRPL. Come meet them!" />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><text x=%220%22 y=%2250%22 font-size=%2250%22>%F0%9F%A5%9A</text></svg>" />
+</head>
+<body>
+
+<!-- ============ BOOT / LOGIN SCREEN ============ -->
+<section id="login-screen" class="screen active">
+  <div class="scanlines"></div>
+  <div class="crt"></div>
+  <div class="login-inner">
+    <div class="logo">
+      <h1 class="title-en glitch" data-text="TAMAGOSCII">TAMAGOSCII</h1>
+      <h2 class="title-jp">タマゴッシー</h2>
+      <p class="tagline">&gt; THE XRPL ASCII PET _</p>
+    </div>
+
+    <pre class="ascii-egg" id="ascii-egg">
+      ████████
+    ██░░░░░░░░██
+   ██░░▓▓░░░░▓▓██
+  ██░░░░░░░░░░░░██
+  ██░░░░  ░░  ░░██
+  ██░░░░░░░░░░░░██
+   ██░░░░░░░░░░██
+    ██░░░░░░░░██
+      ████████
+    </pre>
+
+    <div class="login-actions" id="login-actions">
+      <button id="connect-wallet" class="btn btn-primary">
+        <span class="btn-icon">◈</span> CONNECT XRPL WALLET
+      </button>
+      <p class="hint">Your pet's DNA is derived from your XRPL address</p>
+    </div>
+
+    <div class="pseudo-form hidden" id="pseudo-form">
+      <p class="connected-addr">Connected: <span id="addr-preview"></span></p>
+      <label for="pseudo-input">CHOOSE YOUR PSEUDO</label>
+      <input id="pseudo-input" type="text" maxlength="16" placeholder="PlayerOne" autocomplete="off" />
+      <button id="confirm-pseudo" class="btn btn-primary">ENTER GAME ▶</button>
+    </div>
+
+    <div class="login-footer">
+      <span>v1.0.0</span> · <span>© SCII LABS</span> · <span>POWERED BY XRPL</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MAIN GAME ============ -->
+<main id="game-screen" class="screen">
+
+  <!-- Top HUD -->
+  <header class="hud">
+    <div class="hud-left">
+      <div class="score-block">
+        <span class="score-label">SCORE</span>
+        <span class="score-value" id="score-value">100</span>
+      </div>
+      <div class="coins-block">
+        <span class="coin-icon">⬢</span>
+        <span id="coins-value">500</span>
+        <span class="coin-name">SCII</span>
+      </div>
+    </div>
+    <div class="hud-center">
+      <div class="title-small">TAMAGOSCII <span>タマゴッシー</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="player-profile" id="player-profile">
+        <span class="profile-pseudo" id="profile-pseudo">—</span>
+        <span class="profile-addr" id="profile-addr">—</span>
+      </div>
+      <div class="age-block">
+        <span class="age-label">AGE:</span>
+        <span id="age-value">0MIN</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats bars -->
+  <section class="stats">
+    <div class="stat stat-hunger">
+      <span class="stat-label">HUNGER</span>
+      <div class="bar"><div class="bar-fill" id="bar-hunger"></div></div>
+      <span class="stat-value" id="val-hunger">80</span>
+    </div>
+    <div class="stat stat-happy">
+      <span class="stat-label">HAPPY</span>
+      <div class="bar"><div class="bar-fill" id="bar-happy"></div></div>
+      <span class="stat-value" id="val-happy">80</span>
+    </div>
+    <div class="stat stat-energy">
+      <span class="stat-label">ENERGY</span>
+      <div class="bar"><div class="bar-fill" id="bar-energy"></div></div>
+      <span class="stat-value" id="val-energy">90</span>
+    </div>
+    <div class="stat stat-hygiene">
+      <span class="stat-label">HYGIENE</span>
+      <div class="bar"><div class="bar-fill" id="bar-hygiene"></div></div>
+      <span class="stat-value" id="val-hygiene">90</span>
+    </div>
+  </section>
+
+  <!-- Mood & Level -->
+  <section class="mood">
+    <div class="mood-label" id="mood-label">CONTENT</div>
+    <div class="level-label">LV.<span id="level-value">1</span></div>
+  </section>
+
+  <!-- Creature stage -->
+  <section class="stage">
+    <div class="stage-frame" id="stage-frame">
+      <pre class="creature" id="creature"></pre>
+      <div class="stage-particles" id="particles"></div>
+      <div class="floating-text" id="floating-text"></div>
+    </div>
+    <div class="creature-name" id="creature-name">◆ SCII ◆</div>
+  </section>
+
+  <!-- Actions -->
+  <section class="actions">
+    <button class="action feed" data-action="feed">
+      <span class="action-icon">🍎</span>
+      <span class="action-label">FEED</span>
+      <span class="action-cost">0.01 XRP</span>
+    </button>
+    <button class="action play" data-action="play">
+      <span class="action-icon">🎮</span>
+      <span class="action-label">PLAY</span>
+      <span class="action-cost">0.02 XRP</span>
+    </button>
+    <button class="action sleep" data-action="sleep">
+      <span class="action-icon">💤</span>
+      <span class="action-label">SLEEP</span>
+      <span class="action-cost">0.01 XRP</span>
+    </button>
+    <button class="action clean" data-action="clean">
+      <span class="action-icon">🧹</span>
+      <span class="action-label">CLEAN</span>
+      <span class="action-cost">0.01 XRP</span>
+    </button>
+    <button class="action pet" data-action="pet">
+      <span class="action-icon">💕</span>
+      <span class="action-label">PET</span>
+      <span class="action-cost">FREE</span>
+    </button>
+  </section>
+
+  <!-- Food selector -->
+  <section class="food-selector" id="food-selector">
+    <div class="selector-title">FOOD:</div>
+    <div class="food-items">
+      <button class="food-item selected" data-food="apple" data-value="15"><span>🍎</span></button>
+      <button class="food-item" data-food="cake" data-value="25"><span>🍰</span></button>
+      <button class="food-item" data-food="salad" data-value="10"><span>🥗</span></button>
+      <button class="food-item" data-food="pizza" data-value="30"><span>🍕</span></button>
+      <button class="food-item" data-food="candy" data-value="20"><span>🍬</span></button>
+      <button class="food-item" data-food="sushi" data-value="35"><span>🍣</span></button>
+    </div>
+  </section>
+
+  <!-- Fun features -->
+  <section class="fun-row">
+    <button class="fun-btn" id="btn-shop">⬢ SHOP</button>
+    <button class="fun-btn" id="btn-minigame">★ MINI-GAME</button>
+    <button class="fun-btn" id="btn-share">↗ SHARE</button>
+    <button class="fun-btn" id="btn-achievements">♦ ACHIEVEMENTS</button>
+  </section>
+
+  <!-- Audio Player Bottom Bar -->
+  <footer class="audio-bar">
+    <button class="audio-btn" id="audio-prev">⏮</button>
+    <button class="audio-btn" id="audio-play">▶</button>
+    <button class="audio-btn" id="audio-next">⏭</button>
+    <div class="track-info">
+      <div class="track-title" id="track-title">— NO TRACK —</div>
+      <div class="track-progress"><div class="track-progress-fill" id="track-progress-fill"></div></div>
+    </div>
+    <input type="range" min="0" max="100" value="60" class="volume" id="volume" />
+    <label class="audio-btn file-upload" title="Load your music">
+      <input type="file" id="audio-file" accept="audio/*" multiple hidden />
+      ♪+
+    </label>
+    <button class="audio-btn" id="sfx-toggle" title="Sound FX">🔊</button>
+  </footer>
+</main>
+
+<!-- ============ MODALS ============ -->
+<div class="modal-root" id="modal-root"></div>
+
+<!-- Templates -->
+<template id="tpl-shop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⬢ SCII SHOP</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="shop-desc">Buy packs of Scii Coins with XRP micro-transactions</p>
+      <div class="shop-grid">
+        <div class="shop-item" data-xrp="0.5" data-coins="100">
+          <div class="shop-pack">📦</div>
+          <div class="shop-amount">100 ⬢</div>
+          <div class="shop-price">0.5 XRP</div>
+          <button class="btn btn-small buy">BUY</button>
+        </div>
+        <div class="shop-item" data-xrp="2" data-coins="500">
+          <div class="shop-pack">🎁</div>
+          <div class="shop-amount">500 ⬢</div>
+          <div class="shop-price">2 XRP</div>
+          <button class="btn btn-small buy">BUY</button>
+        </div>
+        <div class="shop-item" data-xrp="5" data-coins="1500">
+          <div class="shop-pack">💎</div>
+          <div class="shop-amount">1500 ⬢</div>
+          <div class="shop-price">5 XRP</div>
+          <button class="btn btn-small buy">BUY</button>
+        </div>
+        <div class="shop-item" data-xrp="10" data-coins="3500">
+          <div class="shop-pack">👑</div>
+          <div class="shop-amount">3500 ⬢</div>
+          <div class="shop-price">10 XRP</div>
+          <button class="btn btn-small buy">BUY</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-share">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>↗ SHARE YOUR SCII</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Share the link to your creature on social networks!</p>
+      <input type="text" readonly class="share-url" id="share-url" />
+      <div class="share-btns">
+        <button class="btn btn-small" data-share="copy">📋 COPY</button>
+        <button class="btn btn-small" data-share="twitter">𝕏 TWITTER</button>
+        <button class="btn btn-small" data-share="facebook">f FACEBOOK</button>
+        <button class="btn btn-small" data-share="telegram">✈ TELEGRAM</button>
+        <button class="btn btn-small" data-share="whatsapp">♣ WHATSAPP</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-achievements">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>♦ ACHIEVEMENTS</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <ul class="ach-list" id="ach-list"></ul>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-minigame">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>★ CATCH THE PIXEL</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Click the pixel to earn Scii Coins! You have 10 seconds.</p>
+      <div class="minigame-stats">
+        <span>Time: <span id="mg-time">10</span>s</span>
+        <span>Score: <span id="mg-score">0</span></span>
+      </div>
+      <div class="minigame-arena" id="mg-arena"></div>
+      <button class="btn btn-small" id="mg-start">START</button>
+    </div>
+  </div>
+</template>
+
+<script src="./creature.js"></script>
+<script src="./wallet.js"></script>
+<script src="./audio.js"></script>
+<script src="./game.js"></script>
+</body>
+</html>
