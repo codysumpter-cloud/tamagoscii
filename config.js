@@ -1,64 +1,153 @@
 /* ============================================================
    TAMAGOSCII - Public runtime configuration
-   Edit values here for production. Secrets stay server-side.
+   ============================================================
+   This file is loaded directly by the browser. It is public —
+   DO NOT put secrets (API secrets, seed phrases, passwords) here.
+
+   ┌──────────────────────────────────────────────────────────┐
+   │  👋  TO GO LIVE, EDIT ONLY THE 3 LINES MARKED "🔴 EDIT ME"│
+   │      Everything else already has sensible defaults.      │
+   │                                                          │
+   │  1. TREASURY_ADDRESS  → your XRPL wallet (receives XRP)  │
+   │  2. DESTINATION_TAG   → any integer of your choice       │
+   │  3. API_BASE_URL      → your backend URL (can stay empty)│
+   └──────────────────────────────────────────────────────────┘
 ============================================================ */
 
 window.TAMA_CONFIG = {
-  // ---------- XRPL Network ----------
-  // Switch between 'mainnet' and 'testnet' here.
+
+  /* ════════════════════════════════════════════════════════
+     1. XRPL NETWORK
+     ════════════════════════════════════════════════════════
+     'mainnet' = real XRP with real value (production)
+     'testnet' = fake XRP for free testing
+                 Get free testnet XRP here:
+                 https://test.bithomp.com/faucet
+  */
   XRPL_NETWORK: 'mainnet',
 
-  // WSS endpoints
   XRPL_WSS: {
     mainnet: 'wss://xrplcluster.com',
     testnet: 'wss://s.altnet.rippletest.net:51233',
   },
 
-  // Block explorers
   XRPL_EXPLORER: {
     mainnet: 'https://livenet.xrpl.org',
     testnet: 'https://testnet.xrpl.org',
   },
 
-  // ---------- Treasury (receives all micro-tx) ----------
-  // ⚠️ Replace with your own mainnet XRPL address before going live.
-  TREASURY_ADDRESS: 'rTamagosciiTreasuryReplaceMe00000',
+
+  /* ════════════════════════════════════════════════════════
+     2. 🔴 EDIT ME — YOUR XRPL TREASURY ADDRESS
+     ════════════════════════════════════════════════════════
+     This is YOUR XRPL wallet address. Every time a player
+     pays 0.01 XRP to FEED/PLAY/SLEEP their Tamagoscii, the
+     XRP arrives in this wallet.
+
+     How to get one:
+       a) Install Xaman (https://xaman.app/) on your phone
+       b) Create a new account in the app
+       c) Write down the 12-word seed phrase in a safe place
+       d) Send ≥10 XRP to the address to activate it
+       e) Copy the address (starts with "r...") and paste below
+
+     ⚠️ DOUBLE-CHECK the address. A typo = XRP lost forever.
+     ⚠️ NEVER put your SEED PHRASE in this file. Only the
+        public address (starts with "r").
+  */
+  TREASURY_ADDRESS: 'rREPLACE_ME_WITH_YOUR_XRPL_ADDRESS',
+
+
+  /* ════════════════════════════════════════════════════════
+     3. 🔴 EDIT ME — DESTINATION TAG
+     ════════════════════════════════════════════════════════
+     Any positive integer you choose. This tag is attached to
+     every Tamagoscii payment so you can later filter your
+     revenue from this app vs other payments on the same
+     wallet. Pick something memorable, for example:
+        - your birthday as YYYYMMDD → 19910425
+        - today's date               → 20260411
+        - a simple number            → 1337
+
+     Just make sure it's the SAME in backend/.env too.
+  */
   DESTINATION_TAG: 20260411,
 
-  // ---------- Wallet providers ----------
-  // The frontend supports both GemWallet (desktop) and Xaman (mobile).
-  // Xaman requires the backend to create signing payloads — make sure
-  // API_BASE_URL points to a server that has XUMM_API_KEY set.
+
+  /* ════════════════════════════════════════════════════════
+     4. WALLET PROVIDERS
+     ════════════════════════════════════════════════════════
+     Keep this list as-is unless you want to disable one.
+     - GemWallet works only on desktop (browser extension)
+     - Xaman   works only on mobile  (phone app + QR code)
+  */
   WALLET_PROVIDERS: ['gemwallet', 'xaman'],
   GEMWALLET_INSTALL_URL: 'https://gemwallet.app/',
   XAMAN_INSTALL_URL: 'https://xaman.app/',
 
-  // ---------- Backend API ----------
-  // URL of the Tamagoscii backend (server.js). Used for:
-  //   - verifying real XRPL transactions server-side
-  //   - creating Xaman sign-in / payment payloads
-  //   - persisting creature state
-  // Leave empty '' to run in static-only mode (GemWallet + demo only).
+
+  /* ════════════════════════════════════════════════════════
+     5. 🔴 EDIT ME (LATER) — BACKEND API URL
+     ════════════════════════════════════════════════════════
+     URL of your deployed backend (see backend/README.md).
+     The backend is needed for:
+        - Xaman mobile wallet flow (QR code signing)
+        - verifying XRPL transactions server-side
+        - saving creature states across devices
+
+     👉 Leave this EMPTY '' until you deploy the backend.
+        With an empty value, Tamagoscii still works in:
+           - GemWallet mode (desktop only)
+           - Demo mode (no real payments)
+
+     Once deployed, set it to something like:
+        'https://tamagoscii-api.vercel.app'
+        'https://tamagoscii-api.up.railway.app'
+        'https://api.tamagoscii.app'
+        (NO trailing slash)
+  */
   API_BASE_URL: '',
 
-  // ---------- Prices (in XRP) ----------
+
+  /* ════════════════════════════════════════════════════════
+     6. PRICES (in XRP)
+     ════════════════════════════════════════════════════════
+     0.01 XRP ≈ 0.005 € at time of writing. These are the
+     amounts the user pays for each action. Feel free to
+     raise them if you want to earn more per player.
+     Must match the PRICES object in backend/server.js.
+  */
   PRICES: {
-    feed: 0.01,
-    play: 0.02,
-    sleep: 0.01,
-    clean: 0.01,
-    pet: 0,
-    pack_small: 0.5,
-    pack_medium: 2,
-    pack_large: 5,
-    pack_whale: 10,
+    feed:        0.01,   // click on FEED
+    play:        0.02,   // click on PLAY
+    sleep:       0.01,   // click on SLEEP
+    clean:       0.01,   // click on CLEAN
+    pet:         0,      // petting is free
+    pack_small:  0.5,    //  100 Scii Coins pack
+    pack_medium: 2,      //  500 Scii Coins pack
+    pack_large:  5,      // 1500 Scii Coins pack
+    pack_whale:  10,     // 3500 Scii Coins pack
   },
 
-  // ---------- Music ----------
-  MUSIC_MANIFEST: './music/tracks.json',
-  MUSIC_DIR: './music/',
 
-  // ---------- App ----------
+  /* ════════════════════════════════════════════════════════
+     7. MUSIC
+     ════════════════════════════════════════════════════════
+     The bottom-bar audio player auto-loads tracks listed in
+     music/tracks.json. To add new tracks:
+        1. Drop the .mp3 file inside the music/ folder
+        2. Add an entry to music/tracks.json
+        3. Refresh the page
+  */
+  MUSIC_MANIFEST: './music/tracks.json',
+  MUSIC_DIR:      './music/',
+
+
+  /* ════════════════════════════════════════════════════════
+     8. APP METADATA
+     ════════════════════════════════════════════════════════
+     Cosmetic. Shown in the HUD and page <title>.
+  */
   APP_VERSION: '1.1.0',
-  APP_NAME: 'Tamagoscii',
+  APP_NAME:    'Tamagoscii',
 };
