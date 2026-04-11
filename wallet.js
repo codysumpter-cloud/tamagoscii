@@ -29,21 +29,39 @@
     const ua = navigator.userAgent || '';
     return /iPhone|iPad|iPod|Android|Mobile|webOS|BlackBerry|Opera Mini/i.test(ua);
   }
-  async function waitForGem(timeoutMs = 1500){
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs){
-      if (window.GemWalletApi) return true;
-      await new Promise(r => setTimeout(r, 100));
-    }
-    return !!window.GemWalletApi;
+  // Wait until the GemWallet SDK has finished loading from a CDN.
+  // The ESM loader in index.html sets window.__gemReady and dispatches
+  // the 'gemwallet-ready' event; we fall back to polling in case the
+  // script order differs.
+  async function waitForGem(timeoutMs = 5000){
+    if (window.GemWalletApi) return true;
+    return new Promise(resolve => {
+      let done = false;
+      const finish = ok => { if (!done){ done = true; resolve(ok); } };
+      document.addEventListener('gemwallet-ready', () => finish(true), { once:true });
+      const start = Date.now();
+      const iv = setInterval(() => {
+        if (window.GemWalletApi){ clearInterval(iv); finish(true); }
+        else if (window.__gemReady === false){ clearInterval(iv); finish(false); }
+        else if (Date.now() - start > timeoutMs){ clearInterval(iv); finish(!!window.GemWalletApi); }
+      }, 120);
+    });
   }
   async function isGemInstalled(){
-    const ok = await waitForGem();
-    if (!ok) return false;
+    const sdkReady = await waitForGem();
+    if (!sdkReady){
+      console.warn('[TamaWallet] GemWallet SDK not available (CDN blocked or offline)');
+      return false;
+    }
     try{
       const res = await window.GemWalletApi.isInstalled();
-      return !!(res && res.result && res.result.isInstalled);
-    }catch(e){ return false; }
+      const installed = !!(res && res.result && res.result.isInstalled);
+      console.log('[TamaWallet] GemWallet extension installed =', installed);
+      return installed;
+    }catch(e){
+      console.warn('[TamaWallet] GemWallet isInstalled() threw:', e);
+      return false;
+    }
   }
   function apiBase(){
     const cfg = window.TAMA_CONFIG || {};

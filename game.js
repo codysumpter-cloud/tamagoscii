@@ -158,10 +158,16 @@
     };
     $('#mood-label').style.color = moodColors[state.mood] || '#c66dff';
 
-    // Creature
+    // Creature: drive the CSS egg with the creature's colour
+    // and render only the face (eyes + mouth) inside.
+    const frame = $('#stage-frame');
+    if (frame && creature.color){
+      frame.style.setProperty('--egg-color', creature.color.main);
+      frame.style.setProperty('--egg-glow',  creature.color.glow);
+      frame.style.setProperty('--egg-aspect', String(creature.variant?.aspect || 1.2));
+    }
     const el = $('#creature');
-    el.textContent = creature.render(state.mood);
-    if (creature.color) el.style.color = creature.color.hex;
+    el.textContent = creature.faceFor(state.mood);
 
     // Profile
     $('#profile-pseudo').textContent = state.pseudo || 'GUEST';
@@ -333,18 +339,34 @@
     openModal('tpl-shop', node=>{
       node.querySelectorAll('.shop-item .buy').forEach(btn=>{
         btn.addEventListener('click', async()=>{
+          if (btn.disabled) return;
           const item = btn.closest('.shop-item');
           const xrp = parseFloat(item.dataset.xrp);
-          const coins = parseInt(item.dataset.coins,10);
+          const coins = parseInt(item.dataset.coins, 10);
+          const pack = item.dataset.pack; // pack_small | pack_medium | ...
+          if (!pack){
+            toast('INVALID PACK','#ff4b6e');
+            return;
+          }
+          const originalLabel = btn.textContent;
+          btn.disabled = true;
+          btn.textContent = '…';
           try{
-            await window.TamaWallet.pay(xrp,'tamagoscii:pack');
+            const tx = await window.TamaWallet.pay(xrp, 'tamagoscii:'+pack, pack);
             state.coins += coins;
             saveState(); render();
             window.TamaAudio.sfx('coin');
             toast('+'+coins+' ⬢ SCII COINS','#f6e24b');
+            if (tx && tx.hash && !tx.hash.startsWith('demo_') && tx.hash !== 'free'){
+              setTimeout(()=>toast('TX '+tx.hash.slice(0,10)+'…','#4bf58a'), 300);
+            }
           }catch(e){
-            toast('TX FAILED: '+e.message,'#ff4b6e');
+            const msg = (e && e.message) || 'error';
+            toast('TX FAILED: '+msg,'#ff4b6e');
             window.TamaAudio.sfx('error');
+          }finally{
+            btn.disabled = false;
+            btn.textContent = originalLabel;
           }
         });
       });
@@ -521,10 +543,14 @@
         }
       } else if (msg === 'GEMWALLET_REJECTED'){
         toast('CONNECTION REJECTED','#ff4b6e');
-      } else if (msg === 'XAMAN_BACKEND_REQUIRED'){
-        toast('BACKEND REQUIRED FOR XAMAN','#ff4b6e');
-      } else if (msg === 'XUMM_DISABLED'){
-        toast('XAMAN DISABLED ON BACKEND','#ff4b6e');
+      } else if (msg === 'XAMAN_BACKEND_REQUIRED' || msg === 'XUMM_DISABLED'){
+        toast('XAMAN BACKEND NOT CONFIGURED','#ff4b6e');
+        const link = $('#install-xaman');
+        if (link){
+          link.href = (window.TAMA_CONFIG && window.TAMA_CONFIG.XAMAN_INSTALL_URL)
+            || 'https://xaman.app/';
+          link.classList.remove('hidden');
+        }
       } else if (msg === 'XUMM_CANCELLED'){
         toast('SIGN-IN CANCELLED','#ff4b6e');
       } else if (msg === 'XUMM_TIMEOUT'){
@@ -696,6 +722,17 @@
         xaman.classList.add('disabled');
         xaman.title = 'Backend API required — set API_BASE_URL in config.js';
       }
+    }
+
+    // Preemptively wire the "Install wallet" links with their URLs and
+    // show them on mobile (where people are most likely to need them).
+    const tcfg = window.TAMA_CONFIG || {};
+    const gemLink = $('#install-gem');
+    const xamanLink = $('#install-xaman');
+    if (gemLink) gemLink.href = tcfg.GEMWALLET_INSTALL_URL || 'https://gemwallet.app/';
+    if (xamanLink) xamanLink.href = tcfg.XAMAN_INSTALL_URL || 'https://xaman.app/';
+    if (window.TamaIsMobile && window.TamaIsMobile()){
+      xamanLink?.classList.remove('hidden');
     }
 
     document.querySelectorAll('.wallet-btn').forEach(btn=>{

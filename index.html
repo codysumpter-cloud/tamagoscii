@@ -152,7 +152,7 @@
   <!-- Creature stage -->
   <section class="stage">
     <div class="stage-frame" id="stage-frame">
-      <pre class="creature" id="creature"></pre>
+      <div class="creature" id="creature">◔◡◕</div>
       <div class="stage-particles" id="particles"></div>
       <div class="floating-text" id="floating-text"></div>
     </div>
@@ -260,25 +260,25 @@
     <div class="modal-body">
       <p class="shop-desc">Buy packs of Scii Coins with XRP micro-transactions</p>
       <div class="shop-grid">
-        <div class="shop-item" data-xrp="0.5" data-coins="100">
+        <div class="shop-item" data-pack="pack_small" data-xrp="0.5" data-coins="100">
           <div class="shop-pack">📦</div>
           <div class="shop-amount">100 ⬢</div>
           <div class="shop-price">0.5 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-xrp="2" data-coins="500">
+        <div class="shop-item" data-pack="pack_medium" data-xrp="2" data-coins="500">
           <div class="shop-pack">🎁</div>
           <div class="shop-amount">500 ⬢</div>
           <div class="shop-price">2 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-xrp="5" data-coins="1500">
+        <div class="shop-item" data-pack="pack_large" data-xrp="5" data-coins="1500">
           <div class="shop-pack">💎</div>
           <div class="shop-amount">1500 ⬢</div>
           <div class="shop-price">5 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-xrp="10" data-coins="3500">
+        <div class="shop-item" data-pack="pack_whale" data-xrp="10" data-coins="3500">
           <div class="shop-pack">👑</div>
           <div class="shop-amount">3500 ⬢</div>
           <div class="shop-price">10 XRP</div>
@@ -339,7 +339,38 @@
   </div>
 </template>
 
-<script src="https://unpkg.com/@gemwallet/api@3.8.0/build/iife/index.js"></script>
+<!-- GemWallet SDK loader: the @gemwallet/api npm package is
+     ESM-only, so we import it via esm.sh (with a jsdelivr
+     fallback) and attach it to window.GemWalletApi so the
+     rest of the app can use it without a bundler. -->
+<script type="module">
+(async function loadGemWallet(){
+  const sources = [
+    'https://esm.sh/@gemwallet/api@3.8.0',
+    'https://cdn.jsdelivr.net/npm/@gemwallet/api@3.8.0/+esm',
+    'https://esm.sh/@gemwallet/api',
+  ];
+  for (const src of sources){
+    try {
+      const mod = await import(src);
+      const api = mod.default && typeof mod.default === 'object' ? mod.default : mod;
+      if (!api || typeof api.isInstalled !== 'function'){
+        throw new Error('isInstalled() missing on loaded module');
+      }
+      window.GemWalletApi = api;
+      window.__gemReady = true;
+      console.log('[Tamagoscii] GemWallet SDK loaded from', src);
+      document.dispatchEvent(new CustomEvent('gemwallet-ready'));
+      return;
+    } catch (e) {
+      console.warn('[Tamagoscii] GemWallet SDK load failed from', src, '→', e.message || e);
+    }
+  }
+  window.__gemReady = false;
+  console.error('[Tamagoscii] GemWallet SDK could not be loaded from any CDN.');
+})();
+</script>
+
 <script src="./config.js"></script>
 <script src="./creature.js"></script>
 <script src="./wallet.js"></script>
