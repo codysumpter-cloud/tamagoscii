@@ -198,7 +198,7 @@
     const cost = ACTION_COST_XRP[action];
     try{
       if (cost > 0){
-        const tx = await window.TamaWallet.pay(cost, 'tamagoscii:'+action);
+        const tx = await window.TamaWallet.pay(cost, 'tamagoscii:'+action, action);
         if (tx && tx.hash && !tx.hash.startsWith('demo_') && tx.hash !== 'free'){
           toast('TX '+tx.hash.slice(0,10)+'…','#4bf58a');
         }
@@ -490,19 +490,28 @@
     setTimeout(()=>$('#pseudo-input')?.focus(), 50);
   }
 
-  async function doConnect(){
+  async function doConnect(provider){
     window.TamaAudio.sfx('connect');
-    const btn = $('#connect-wallet');
-    btn.disabled = true;
-    btn.textContent = 'CONNECTING...';
+    const btn = document.querySelector(`.wallet-btn[data-provider="${provider}"]`);
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn){
+      btn.disabled = true;
+      btn.classList.add('connecting');
+    }
     try{
-      const addr = await window.TamaWallet.connect();
+      const addr = await window.TamaWallet.connect(provider);
       afterConnected(addr);
     }catch(e){
-      btn.disabled = false;
-      btn.innerHTML = '<span class="btn-icon">◈</span> CONNECT GEMWALLET';
+      if (btn){
+        btn.disabled = false;
+        btn.classList.remove('connecting');
+        btn.innerHTML = originalHtml;
+      }
       window.TamaAudio.sfx('error');
-      if (e && e.message === 'GEMWALLET_NOT_INSTALLED'){
+      const msg = e?.message || 'CONNECTION_FAILED';
+      console.warn('[connect]', msg, e);
+
+      if (msg === 'GEMWALLET_NOT_INSTALLED'){
         toast('GEMWALLET NOT INSTALLED','#ff4b6e');
         const link = $('#install-gem');
         if (link){
@@ -510,8 +519,16 @@
             || 'https://gemwallet.app/';
           link.classList.remove('hidden');
         }
-      } else if (e && e.message === 'GEMWALLET_REJECTED'){
+      } else if (msg === 'GEMWALLET_REJECTED'){
         toast('CONNECTION REJECTED','#ff4b6e');
+      } else if (msg === 'XAMAN_BACKEND_REQUIRED'){
+        toast('BACKEND REQUIRED FOR XAMAN','#ff4b6e');
+      } else if (msg === 'XUMM_DISABLED'){
+        toast('XAMAN DISABLED ON BACKEND','#ff4b6e');
+      } else if (msg === 'XUMM_CANCELLED'){
+        toast('SIGN-IN CANCELLED','#ff4b6e');
+      } else if (msg === 'XUMM_TIMEOUT'){
+        toast('SIGN-IN TIMED OUT','#ff4b6e');
       } else {
         toast('CONNECTION FAILED','#ff4b6e');
       }
@@ -527,6 +544,46 @@
     }catch(e){
       toast('DEMO INIT FAILED','#ff4b6e');
     }
+  }
+
+  /* ---------- Xaman QR modal (used by wallet.js) ---------- */
+  function setupXamanUI(){
+    const ui = {
+      _node: null,
+      show({ title, subtitle, qr, deeplink }){
+        const root = $('#modal-root');
+        root.innerHTML = '';
+        const tpl = document.getElementById('tpl-xaman');
+        const node = tpl.content.firstElementChild.cloneNode(true);
+        root.appendChild(node);
+        root.classList.add('active');
+        this._node = node;
+        node.querySelector('#xaman-title').textContent = title || 'XAMAN';
+        node.querySelector('#xaman-subtitle').textContent = subtitle || '';
+        node.querySelector('#xaman-qr').src = qr || '';
+        const dl = node.querySelector('#xaman-deeplink');
+        if (deeplink){ dl.href = deeplink; dl.classList.remove('hidden'); }
+        else          { dl.classList.add('hidden'); }
+        node.querySelector('.modal-close').onclick = ()=>{
+          closeModal();
+          // we don't reject the pending promise here — let it timeout naturally
+        };
+      },
+      update(status){
+        if (!this._node) return;
+        const el = this._node.querySelector('#xaman-status');
+        if (!el) return;
+        if (status.resolved && status.signed) el.textContent = 'SIGNED ✓';
+        else if (status.cancelled)             el.textContent = 'CANCELLED';
+        else if (status.expired)               el.textContent = 'EXPIRED';
+        else                                   el.textContent = 'Waiting for signature…';
+      },
+      hide(){
+        closeModal();
+        this._node = null;
+      },
+    };
+    window.TamaWallet.setXamanUI(ui);
   }
 
   function doConfirmPseudo(){
@@ -608,7 +665,46 @@
       });
     }
 
-    $('#connect-wallet').addEventListener('click', doConnect);
+    // Wire up the XRPL QR modal used by wallet.js for Xaman flows
+    setupXamanUI();
+
+    // Reorder wallet buttons so the recommended one for the
+    // current platform comes first.
+    const picker = $('#wallet-picker');
+    const preferred = window.TamaWallet.preferredProvider();
+    if (picker){
+      const gem   = picker.querySelector('[data-provider="gemwallet"]');
+      const xaman = picker.querySelector('[data-provider="xaman"]');
+      picker.innerHTML = '';
+      if (preferred === 'xaman'){
+        if (xaman) picker.appendChild(xaman);
+        if (gem)   picker.appendChild(gem);
+      } else {
+        if (gem)   picker.appendChild(gem);
+        if (xaman) picker.appendChild(xaman);
+      }
+      // Only the preferred one shows the "recommended" badge
+      picker.querySelectorAll('.wallet-btn').forEach(btn=>{
+        const badge = btn.querySelector('.wallet-badge');
+        if (!badge) return;
+        if (btn.dataset.provider === preferred) badge.classList.remove('hidden');
+        else                                     badge.classList.add('hidden');
+      });
+      // Hide Xaman option if no backend is configured
+      const apiUrl = (window.TAMA_CONFIG && window.TAMA_CONFIG.API_BASE_URL) || '';
+      if (!apiUrl && xaman){
+        xaman.classList.add('disabled');
+        xaman.title = 'Backend API required — set API_BASE_URL in config.js';
+      }
+    }
+
+    document.querySelectorAll('.wallet-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if (btn.classList.contains('disabled')) return;
+        const p = btn.dataset.provider;
+        doConnect(p);
+      });
+    });
     $('#demo-mode')?.addEventListener('click', doConnectDemo);
     $('#confirm-pseudo').addEventListener('click', doConfirmPseudo);
     $('#pseudo-input')?.addEventListener('keydown', e=>{

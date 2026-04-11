@@ -1,11 +1,14 @@
 /* ============================================================
-   TAMAGOSCII - GemWallet integration (XRPL mainnet)
+   TAMAGOSCII - Multi-provider XRPL wallet
    ------------------------------------------------------------
-   Primary wallet provider: GemWallet (browser extension).
-   https://gemwallet.app/
+   Supported providers:
+     1. gemwallet  — browser extension (desktop)
+     2. xaman      — mobile app via QR code (requires backend)
+     3. demo       — local-only fallback for testing
 
-   Falls back to a local "demo mode" only if the user explicitly
-   chooses it from the login screen.
+   The frontend picks the right default based on the device
+   (mobile → Xaman, desktop → GemWallet) but users can always
+   override the choice from the login screen.
 ============================================================ */
 
 (function(){
@@ -13,6 +16,7 @@
 
   const STORAGE_KEY = 'tamagoscii:wallet';
 
+  /* ---------- helpers ---------- */
   function xrpToDrops(xrp){
     return String(Math.round(parseFloat(xrp) * 1_000_000));
   }
@@ -20,8 +24,12 @@
     if (!addr) return '';
     return addr.slice(0,6) + '...' + addr.slice(-4);
   }
-
-  async function waitForGem(timeoutMs = 2000){
+  function isMobile(){
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /iPhone|iPad|iPod|Android|Mobile|webOS|BlackBerry|Opera Mini/i.test(ua);
+  }
+  async function waitForGem(timeoutMs = 1500){
     const start = Date.now();
     while (Date.now() - start < timeoutMs){
       if (window.GemWalletApi) return true;
@@ -29,29 +37,115 @@
     }
     return !!window.GemWalletApi;
   }
-
   async function isGemInstalled(){
-    const ok = await waitForGem(1500);
+    const ok = await waitForGem();
     if (!ok) return false;
     try{
       const res = await window.GemWalletApi.isInstalled();
       return !!(res && res.result && res.result.isInstalled);
-    }catch(e){
-      return false;
+    }catch(e){ return false; }
+  }
+  function apiBase(){
+    const cfg = window.TAMA_CONFIG || {};
+    return (cfg.API_BASE_URL || '').replace(/\/$/, '');
+  }
+  async function apiCall(path, opts = {}){
+    const base = apiBase();
+    if (!base) throw new Error('API_BASE_URL_NOT_SET');
+    const res = await fetch(base + path, {
+      method: opts.method || 'GET',
+      headers: { 'Content-Type':'application/json' },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok){
+      let msg = 'HTTP_'+res.status;
+      try { const d = await res.json(); if (d.error) msg = d.error; } catch(e){}
+      throw new Error(msg);
     }
+    return res.json();
   }
 
+  /* ---------- Xaman payload lifecycle ---------- */
+  // Polls the backend until a payload is signed, cancelled or expired.
+  // onUpdate is called with { signed, resolved, account, txid }.
+  async function pollXamanPayload(uuid, onUpdate, { intervalMs = 1500, timeoutMs = 5*60*1000 } = {}){
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs){
+      let status;
+      try {
+        status = await apiCall('/api/xaman/payload/' + uuid);
+      } catch(e) {
+        await new Promise(r => setTimeout(r, intervalMs));
+        continue;
+      }
+      if (onUpdate) onUpdate(status);
+      if (status.signed) return status;
+      if (status.cancelled || status.expired) throw new Error('XUMM_CANCELLED');
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    throw new Error('XUMM_TIMEOUT');
+  }
+
+  /* ============================================================
+     Wallet
+  ============================================================ */
   class Wallet {
     constructor(){
       this.address = null;
       this.network = null;
       this.connected = false;
-      this.provider = null;      // 'gemwallet' | 'demo'
-      this.demoBalance = 100;    // used only in demo mode
+      this.provider = null;          // 'gemwallet' | 'xaman' | 'demo'
+      this.demoBalance = 100;
+      this._xamanUI = null;          // hook set by game.js to show QR modal
     }
 
-    /* ---------------- CONNECT ---------------- */
-    async connect(){
+    /* ---------- wiring UI ---------- */
+    setXamanUI(ui){ this._xamanUI = ui; }
+
+    /* ---------- platform hints ---------- */
+    preferredProvider(){
+      return isMobile() ? 'xaman' : 'gemwallet';
+    }
+    async availableProviders(){
+      const cfg = window.TAMA_CONFIG || {};
+      const enabled = cfg.WALLET_PROVIDERS || ['gemwallet','xaman'];
+      const list = [];
+      if (enabled.includes('gemwallet')){
+        list.push({
+          id:'gemwallet',
+          name:'GemWallet',
+          subtitle:'Browser extension · Desktop',
+          installed: await isGemInstalled(),
+          installUrl: cfg.GEMWALLET_INSTALL_URL,
+          preferred: !isMobile(),
+        });
+      }
+      if (enabled.includes('xaman') && apiBase()){
+        list.push({
+          id:'xaman',
+          name:'Xaman',
+          subtitle:'Mobile app · Scan QR code',
+          installed: true, // handled server-side
+          installUrl: cfg.XAMAN_INSTALL_URL,
+          preferred: isMobile(),
+        });
+      }
+      return list;
+    }
+
+    /* ---------- CONNECT dispatcher ---------- */
+    async connect(provider){
+      provider = provider || this.preferredProvider();
+      switch (provider){
+        case 'gemwallet': return this.connectGem();
+        case 'xaman':     return this.connectXaman();
+        case 'demo':      return this.connectDemo();
+        default: throw new Error('UNKNOWN_PROVIDER');
+      }
+    }
+
+    /* ---------- GemWallet ---------- */
+    async connectGem(){
       const cfg = window.TAMA_CONFIG;
       const installed = await isGemInstalled();
       if (!installed){
@@ -59,13 +153,10 @@
         err.installUrl = cfg.GEMWALLET_INSTALL_URL;
         throw err;
       }
-
-      // Ask GemWallet for the active address
       const res = await window.GemWalletApi.getAddress();
       const address = res && res.result && res.result.address;
       if (!address) throw new Error('GEMWALLET_REJECTED');
 
-      // Try to get network info (GemWallet >= 3.x)
       let network = cfg.XRPL_NETWORK;
       try{
         if (typeof window.GemWalletApi.getNetwork === 'function'){
@@ -74,7 +165,7 @@
             network = String(n.result.network).toLowerCase();
           }
         }
-      }catch(e){ /* ignore */ }
+      }catch(e){}
 
       this.address = address;
       this.network = network;
@@ -84,8 +175,48 @@
       return address;
     }
 
+    /* ---------- Xaman ---------- */
+    async connectXaman(){
+      if (!apiBase()){
+        const err = new Error('XAMAN_BACKEND_REQUIRED');
+        throw err;
+      }
+      // 1. Ask the backend for a sign-in payload
+      const payload = await apiCall('/api/xaman/signin', { method:'POST' });
+      if (!payload || !payload.uuid){
+        throw new Error('XUMM_SIGNIN_FAILED');
+      }
+      // 2. Show QR + deeplink to the user
+      if (this._xamanUI && this._xamanUI.show){
+        this._xamanUI.show({
+          title:'SIGN IN WITH XAMAN',
+          subtitle:'Open Xaman → scan this code',
+          qr: payload.refs.qrPng,
+          deeplink: payload.next,
+        });
+      }
+      // 3. Poll the backend until the user signs
+      let status;
+      try{
+        status = await pollXamanPayload(payload.uuid, (s)=>{
+          if (this._xamanUI && this._xamanUI.update) this._xamanUI.update(s);
+        });
+      } finally {
+        if (this._xamanUI && this._xamanUI.hide) this._xamanUI.hide();
+      }
+      if (!status || !status.account){
+        throw new Error('XUMM_NO_ACCOUNT');
+      }
+      this.address = status.account;
+      this.network = (window.TAMA_CONFIG && window.TAMA_CONFIG.XRPL_NETWORK) || 'mainnet';
+      this.provider = 'xaman';
+      this.connected = true;
+      this._save();
+      return this.address;
+    }
+
+    /* ---------- Demo ---------- */
     async connectDemo(){
-      // Demo mode for local testing without a wallet
       const stored = this._load();
       if (stored && stored.address && stored.provider === 'demo'){
         this.address = stored.address;
@@ -108,74 +239,94 @@
       return a;
     }
 
-    /* ---------------- PAYMENT ---------------- */
-    async pay(amountXRP, memo){
+    /* ============================================================
+       PAY — dispatches based on the active provider
+    ============================================================ */
+    async pay(amountXRP, memo, action){
       if (!this.connected) throw new Error('WALLET_NOT_CONNECTED');
+      if (amountXRP <= 0) return { success:true, hash:'free', amount:0, memo };
+
+      switch (this.provider){
+        case 'gemwallet': return this._payGem(amountXRP, memo);
+        case 'xaman':     return this._payXaman(amountXRP, memo, action);
+        case 'demo':      return this._payDemo(amountXRP, memo);
+        default: throw new Error('UNKNOWN_PROVIDER');
+      }
+    }
+
+    async _payGem(amountXRP, memo){
       const cfg = window.TAMA_CONFIG;
-      if (amountXRP <= 0){
-        return { success:true, hash:'free', amount:0, memo };
-      }
-
-      if (this.provider === 'demo'){
-        // Simulate a tx for offline testing
-        if (this.demoBalance < amountXRP){
-          throw new Error('INSUFFICIENT_XRP');
-        }
-        await new Promise(r=>setTimeout(r,120));
-        this.demoBalance = Math.round((this.demoBalance - amountXRP) * 1e6)/1e6;
-        this._save();
-        return {
-          success:true,
-          hash:'demo_'+Math.random().toString(16).slice(2,12).toUpperCase(),
-          amount:amountXRP,
-          memo,
-        };
-      }
-
-      // Real GemWallet payment on mainnet
       if (!window.GemWalletApi || typeof window.GemWalletApi.sendPayment !== 'function'){
         throw new Error('GEMWALLET_UNAVAILABLE');
       }
-
       const payload = {
         amount: xrpToDrops(amountXRP),
         destination: cfg.TREASURY_ADDRESS,
       };
-      if (cfg.DESTINATION_TAG){
-        payload.destinationTag = cfg.DESTINATION_TAG;
-      }
+      if (cfg.DESTINATION_TAG) payload.destinationTag = cfg.DESTINATION_TAG;
       if (memo){
+        const enc = s => Array.from(new TextEncoder().encode(s))
+          .map(b=>b.toString(16).padStart(2,'0')).join('');
         payload.memos = [{
-          memo: {
-            memoType: Array.from(new TextEncoder().encode('tamagoscii'))
-              .map(b=>b.toString(16).padStart(2,'0')).join(''),
-            memoData: Array.from(new TextEncoder().encode(String(memo)))
-              .map(b=>b.toString(16).padStart(2,'0')).join(''),
+          memo:{
+            memoType: enc('tamagoscii'),
+            memoData: enc(String(memo)),
           }
         }];
       }
-
       const res = await window.GemWalletApi.sendPayment(payload);
-      if (!res || !res.result || !res.result.hash){
-        const e = new Error('TX_REJECTED');
-        throw e;
+      if (!res || !res.result || !res.result.hash) throw new Error('TX_REJECTED');
+      return { success:true, hash:res.result.hash, amount:amountXRP, memo };
+    }
+
+    async _payXaman(amountXRP, memo, action){
+      // The backend knows the amount & destination from `action`.
+      // For a raw amount (e.g. shop packs), we pass `action` too.
+      if (!apiBase()) throw new Error('XAMAN_BACKEND_REQUIRED');
+      if (!action) throw new Error('XAMAN_REQUIRES_ACTION');
+
+      const payload = await apiCall('/api/xaman/payment', {
+        method:'POST',
+        body:{ action },
+      });
+      if (!payload || !payload.uuid) throw new Error('XUMM_PAYMENT_FAILED');
+
+      if (this._xamanUI && this._xamanUI.show){
+        this._xamanUI.show({
+          title:'CONFIRM PAYMENT',
+          subtitle:`${amountXRP} XRP · ${String(action).toUpperCase()}`,
+          qr: payload.refs.qrPng,
+          deeplink: payload.next,
+        });
       }
+      let status;
+      try{
+        status = await pollXamanPayload(payload.uuid, (s)=>{
+          if (this._xamanUI && this._xamanUI.update) this._xamanUI.update(s);
+        });
+      } finally {
+        if (this._xamanUI && this._xamanUI.hide) this._xamanUI.hide();
+      }
+      if (!status || !status.signed || !status.txid){
+        throw new Error('XUMM_NOT_SIGNED');
+      }
+      return { success:true, hash:status.txid, amount:amountXRP, memo };
+    }
+
+    async _payDemo(amountXRP, memo){
+      if (this.demoBalance < amountXRP) throw new Error('INSUFFICIENT_XRP');
+      await new Promise(r => setTimeout(r, 120));
+      this.demoBalance = Math.round((this.demoBalance - amountXRP) * 1e6) / 1e6;
+      this._save();
       return {
         success:true,
-        hash:res.result.hash,
+        hash:'demo_' + Math.random().toString(16).slice(2,12).toUpperCase(),
         amount:amountXRP,
         memo,
-        explorer: this._explorerUrl(res.result.hash),
       };
     }
 
-    _explorerUrl(hash){
-      const cfg = window.TAMA_CONFIG;
-      const base = cfg.XRPL_EXPLORER[cfg.XRPL_NETWORK] || cfg.XRPL_EXPLORER.mainnet;
-      return `${base}/transactions/${hash}`;
-    }
-
-    /* ---------------- PROFILE ---------------- */
+    /* ---------- Profile / storage ---------- */
     disconnect(){
       this.connected = false;
       this.address = null;
@@ -209,4 +360,5 @@
   window.TamaWallet = new Wallet();
   window.TamaShortAddr = short;
   window.TamaIsGemInstalled = isGemInstalled;
+  window.TamaIsMobile = isMobile;
 })();

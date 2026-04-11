@@ -134,6 +134,111 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   text-shadow:0 0 4px currentColor;
 }
 
+/* ============ WALLET PICKER ============ */
+.wallet-picker{
+  display:flex;flex-direction:column;gap:10px;width:100%;max-width:420px;
+}
+.wallet-btn{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;
+  background:linear-gradient(180deg,#1d0b3b,#0f0623);
+  border:3px solid var(--purple);
+  box-shadow:0 0 0 0 var(--purple), 0 4px 0 #2a0b4b;
+  color:var(--fg);
+  transition:transform .1s ease, box-shadow .1s ease, border-color .1s ease;
+  position:relative;
+  text-align:left;
+  cursor:pointer;
+}
+.wallet-btn:hover{
+  transform:translateY(-2px);
+  border-color:var(--pink);
+  box-shadow:0 0 16px var(--purple), 0 6px 0 #2a0b4b;
+}
+.wallet-btn:active{ transform:translateY(1px); }
+.wallet-btn.connecting{
+  opacity:.7;cursor:wait;
+  animation:pulse 1s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{ box-shadow:0 0 0 0 var(--purple), 0 4px 0 #2a0b4b; }
+  50%    { box-shadow:0 0 22px var(--pink), 0 4px 0 #2a0b4b; }
+}
+.wallet-btn.disabled{
+  opacity:.35;pointer-events:none;filter:grayscale(1);
+}
+.wallet-icon{
+  flex:0 0 auto;
+  width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;
+  background:var(--purple);color:#fff;
+  border:2px solid #fff;
+  text-shadow:0 0 6px #fff;
+}
+.wallet-info{ flex:1;display:flex;flex-direction:column;gap:2px;min-width:0; }
+.wallet-name{
+  font-family:var(--font-pixel);font-size:12px;color:var(--yellow);
+  text-shadow:0 0 6px var(--yellow);
+  letter-spacing:1px;
+}
+.wallet-sub{
+  font-size:14px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.wallet-badge{
+  position:absolute;top:-8px;right:8px;
+  font-family:var(--font-pixel);font-size:7px;
+  padding:3px 6px;
+  background:var(--green);color:#000;
+  border:1px solid #000;
+  letter-spacing:1px;
+}
+.wallet-badge.hidden{ display:none; }
+
+/* ============ XAMAN QR MODAL ============ */
+.modal-xaman{ max-width:420px; }
+.xaman-body{
+  display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
+}
+.xaman-subtitle{
+  font-size:16px;color:var(--muted);
+}
+.xaman-qr-wrap{
+  padding:10px;background:#fff;border:3px solid var(--cyan);
+  box-shadow:0 0 16px var(--cyan);
+}
+.xaman-qr-wrap img{
+  display:block;width:240px;height:240px;
+  image-rendering:pixelated;
+}
+.xaman-status{
+  font-family:var(--font-pixel);font-size:9px;color:var(--yellow);
+  text-shadow:0 0 6px var(--yellow);letter-spacing:1px;
+}
+.xaman-spinner{
+  display:flex;gap:6px;justify-content:center;
+}
+.xaman-spinner span{
+  width:8px;height:8px;background:var(--pink);
+  box-shadow:0 0 6px var(--pink);
+  animation:bounceDot .8s ease-in-out infinite;
+}
+.xaman-spinner span:nth-child(2){ animation-delay:.15s; }
+.xaman-spinner span:nth-child(3){ animation-delay:.3s; }
+@keyframes bounceDot{
+  0%,100%{ transform:translateY(0);opacity:.5; }
+  50%    { transform:translateY(-6px);opacity:1; }
+}
+
+@media (max-width:640px){
+  .wallet-btn{ padding:10px 12px; }
+  .wallet-icon{ width:32px;height:32px;font-size:20px; }
+  .wallet-name{ font-size:10px; }
+  .wallet-sub{ font-size:12px; }
+  .xaman-qr-wrap img{ width:200px;height:200px; }
+}
+
 /* Glitch title */
 .glitch{position:relative}
 .glitch::before,.glitch::after{

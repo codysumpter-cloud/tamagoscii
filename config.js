@@ -25,10 +25,21 @@ window.TAMA_CONFIG = {
   TREASURY_ADDRESS: 'rTamagosciiTreasuryReplaceMe00000',
   DESTINATION_TAG: 20260411,
 
-  // ---------- Wallet provider ----------
-  // GemWallet is the only supported wallet.
-  WALLET_PROVIDER: 'gemwallet',
+  // ---------- Wallet providers ----------
+  // The frontend supports both GemWallet (desktop) and Xaman (mobile).
+  // Xaman requires the backend to create signing payloads — make sure
+  // API_BASE_URL points to a server that has XUMM_API_KEY set.
+  WALLET_PROVIDERS: ['gemwallet', 'xaman'],
   GEMWALLET_INSTALL_URL: 'https://gemwallet.app/',
+  XAMAN_INSTALL_URL: 'https://xaman.app/',
+
+  // ---------- Backend API ----------
+  // URL of the Tamagoscii backend (server.js). Used for:
+  //   - verifying real XRPL transactions server-side
+  //   - creating Xaman sign-in / payment payloads
+  //   - persisting creature state
+  // Leave empty '' to run in static-only mode (GemWallet + demo only).
+  API_BASE_URL: '',
 
   // ---------- Prices (in XRP) ----------
   PRICES: {

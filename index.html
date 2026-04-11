@@ -41,14 +41,35 @@
     </pre>
 
     <div class="login-actions" id="login-actions">
-      <button id="connect-wallet" class="btn btn-primary">
-        <span class="btn-icon">◈</span> CONNECT GEMWALLET
-      </button>
       <p class="hint">
         XRPL Mainnet · Your pet's DNA is derived from your wallet address
       </p>
+
+      <div class="wallet-picker" id="wallet-picker">
+        <button class="wallet-btn" data-provider="gemwallet">
+          <span class="wallet-icon">◈</span>
+          <span class="wallet-info">
+            <span class="wallet-name">GEMWALLET</span>
+            <span class="wallet-sub">Browser extension · Desktop</span>
+          </span>
+          <span class="wallet-badge recommended">RECOMMENDED</span>
+        </button>
+
+        <button class="wallet-btn" data-provider="xaman">
+          <span class="wallet-icon">▦</span>
+          <span class="wallet-info">
+            <span class="wallet-name">XAMAN</span>
+            <span class="wallet-sub">Mobile app · Scan QR code</span>
+          </span>
+          <span class="wallet-badge recommended">RECOMMENDED</span>
+        </button>
+      </div>
+
       <a id="install-gem" class="install-link hidden" target="_blank" rel="noopener">
         ▸ Install GemWallet
+      </a>
+      <a id="install-xaman" class="install-link hidden" target="_blank" rel="noopener">
+        ▸ Install Xaman
       </a>
       <button id="demo-mode" class="btn-link">skip · try demo mode</button>
     </div>
@@ -210,6 +231,26 @@
 <div class="modal-root" id="modal-root"></div>
 
 <!-- Templates -->
+<template id="tpl-xaman">
+  <div class="modal modal-xaman">
+    <div class="modal-header">
+      <h3 id="xaman-title">XAMAN · SIGN IN</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body xaman-body">
+      <p class="xaman-subtitle" id="xaman-subtitle">Scan this QR code with the Xaman app</p>
+      <div class="xaman-qr-wrap">
+        <img id="xaman-qr" alt="Xaman QR code" />
+      </div>
+      <a id="xaman-deeplink" class="btn btn-small" target="_blank" rel="noopener">▸ OPEN IN XAMAN APP</a>
+      <div class="xaman-status" id="xaman-status">Waiting for signature…</div>
+      <div class="xaman-spinner" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</template>
+
 <template id="tpl-shop">
   <div class="modal">
     <div class="modal-header">

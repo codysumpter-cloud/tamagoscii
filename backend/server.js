@@ -46,9 +46,18 @@ const RATE_MAX      = parseInt(process.env.RATE_LIMIT_MAX || '120', 10);
 const RATE_WINDOW   = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
 const DB_PATH       = process.env.DB_PATH || join(__dirname, 'data', 'tamagoscii.sqlite');
 
+// ------ Xaman (Xumm) ------
+const XUMM_API_KEY    = process.env.XUMM_API_KEY || '';
+const XUMM_API_SECRET = process.env.XUMM_API_SECRET || '';
+const XUMM_API_BASE   = 'https://xumm.app/api/v1/platform';
+const XUMM_ENABLED    = !!(XUMM_API_KEY && XUMM_API_SECRET);
+
 if (!TREASURY){
   console.error('❌ TREASURY_ADDRESS missing — set it in .env before starting');
   process.exit(1);
+}
+if (!XUMM_ENABLED){
+  console.warn('⚠️  XUMM_API_KEY / XUMM_API_SECRET not set — Xaman endpoints disabled');
 }
 
 // Micro-transaction prices and the Scii Coin reward per action.
@@ -187,6 +196,52 @@ async function verifyXrplTx(hash, expectedXrp, expectedSender){
     destinationTag:tx.DestinationTag,
     from:tx.Account,
     ledgerIndex:tx.ledger_index,
+  };
+}
+
+/* ------------------------------------------------------------
+   XAMAN (XUMM) PLATFORM API
+   ------------------------------------------------------------
+   Creates signing payloads on behalf of the user. The frontend
+   shows the returned QR code / deeplink; the user signs in the
+   Xaman mobile app; the frontend polls getXumm() or subscribes
+   to the returned websocket to know when it's signed.
+
+   Docs: https://docs.xaman.dev/
+------------------------------------------------------------ */
+async function xummFetch(path, opts = {}){
+  if (!XUMM_ENABLED) throw new Error('XUMM_DISABLED');
+  const res = await fetch(XUMM_API_BASE + path, {
+    method: opts.method || 'GET',
+    headers: {
+      'Content-Type':'application/json',
+      'X-API-Key': XUMM_API_KEY,
+      'X-API-Secret': XUMM_API_SECRET,
+    },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch(e){ data = { raw:text }; }
+  if (!res.ok){
+    const err = new Error('XUMM_'+res.status);
+    err.details = data;
+    throw err;
+  }
+  return data;
+}
+
+function normalizeXummPayload(data){
+  // Keep only what the frontend needs (don't leak internals)
+  return {
+    uuid: data.uuid,
+    next: data.next?.always,
+    refs: {
+      qrPng: data.refs?.qr_png,
+      qrUri: data.refs?.qr_uri_quality_opts?.m || data.refs?.qr_png,
+      websocket: data.refs?.websocket_status,
+    },
+    pushed: data.pushed,
   };
 }
 
@@ -392,6 +447,124 @@ app.get('/api/og/:address.svg', (req, res) => {
   res.send(svg);
 });
 
+/* ---------- /api/xaman/status ---------- */
+app.get('/api/xaman/status', (req, res) => {
+  res.json({ enabled: XUMM_ENABLED });
+});
+
+/* ---------- /api/xaman/signin ----------
+   Creates a Xaman SignIn payload (free, no-op tx).
+   Returns a QR code URL + websocket URL so the frontend can
+   display it and wait for the user to sign in their app.
+------------------------------------------------- */
+app.post('/api/xaman/signin', async (req, res) => {
+  try{
+    if (!XUMM_ENABLED) return res.status(503).json({ error:'XUMM_DISABLED' });
+    const data = await xummFetch('/payload', {
+      method:'POST',
+      body:{
+        txjson:{ TransactionType:'SignIn' },
+        options:{
+          submit:false,
+          expire:5, // minutes
+        },
+      },
+    });
+    res.json(normalizeXummPayload(data));
+  }catch(e){
+    console.error('[xaman/signin]', e.message, e.details || '');
+    res.status(500).json({ error:'XUMM_SIGNIN_FAILED' });
+  }
+});
+
+/* ---------- /api/xaman/payment ----------
+   Creates a Xaman Payment payload for one of the in-game
+   actions. Amount is taken from PRICES, destination from
+   TREASURY, and the destination tag from DEST_TAG.
+   Body: { action: 'feed' | 'play' | ... }
+------------------------------------------------- */
+app.post('/api/xaman/payment', async (req, res) => {
+  try{
+    if (!XUMM_ENABLED) return res.status(503).json({ error:'XUMM_DISABLED' });
+    const { action } = req.body || {};
+    if (!(action in PRICES)) return res.status(400).json({ error:'INVALID_ACTION' });
+    const xrp = PRICES[action];
+    const drops = String(Math.round(xrp * 1_000_000));
+
+    const txjson = {
+      TransactionType:'Payment',
+      Destination:TREASURY,
+      Amount:drops,
+    };
+    if (DEST_TAG != null) txjson.DestinationTag = DEST_TAG;
+    // Memo tags the tx as tamagoscii + action for explorers
+    const hex = s => Array.from(new TextEncoder().encode(s))
+      .map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+    txjson.Memos = [{
+      Memo:{
+        MemoType:hex('tamagoscii'),
+        MemoData:hex(action),
+      }
+    }];
+
+    const data = await xummFetch('/payload', {
+      method:'POST',
+      body:{
+        txjson,
+        options:{
+          submit:true,
+          expire:5,
+        },
+        custom_meta:{
+          identifier:'tamagoscii:'+action,
+          blob:{ action, xrp },
+        },
+      },
+    });
+    res.json(normalizeXummPayload(data));
+  }catch(e){
+    console.error('[xaman/payment]', e.message, e.details || '');
+    res.status(500).json({ error:'XUMM_PAYMENT_FAILED' });
+  }
+});
+
+/* ---------- /api/xaman/payload/:uuid ----------
+   Fetches the current status of a Xaman payload.
+   Returns { signed, account, txid } when the user has signed.
+------------------------------------------------- */
+app.get('/api/xaman/payload/:uuid', async (req, res) => {
+  try{
+    if (!XUMM_ENABLED) return res.status(503).json({ error:'XUMM_DISABLED' });
+    const { uuid } = req.params;
+    if (!/^[a-f0-9-]{36}$/i.test(uuid)) return res.status(400).json({ error:'INVALID_UUID' });
+    const data = await xummFetch('/payload/' + uuid);
+    res.json({
+      uuid: data.meta?.uuid,
+      expired: data.meta?.expired,
+      resolved: data.meta?.resolved,
+      signed: data.meta?.signed,
+      cancelled: data.meta?.cancelled,
+      account: data.response?.account || null,
+      txid: data.response?.txid || null,
+      network: data.response?.environment_nodeuri || null,
+    });
+  }catch(e){
+    console.error('[xaman/payload/:uuid]', e.message);
+    res.status(500).json({ error:'XUMM_STATUS_FAILED' });
+  }
+});
+
+/* ---------- /api/xaman/webhook ----------
+   Xaman calls this endpoint when a payload is signed/cancelled.
+   Optional — useful for push notifications or automatic crediting.
+------------------------------------------------- */
+app.post('/api/xaman/webhook', (req, res) => {
+  // You can persist the webhook here if you need server-side triggers.
+  // For now we just accept it and return 200 quickly.
+  console.log('[xaman webhook]', req.body?.meta?.payload_uuidv4 || '?');
+  res.json({ ok:true });
+});
+
 /* ---------- 404 ---------- */
 app.use((req, res) => res.status(404).json({ error:'NOT_FOUND' }));
 
@@ -399,6 +572,7 @@ app.use((req, res) => res.status(404).json({ error:'NOT_FOUND' }));
    START SERVER
 ------------------------------------------------------------ */
 app.listen(PORT, () => {
+  const xummStatus = XUMM_ENABLED ? 'enabled' : 'disabled (no keys)';
   console.log(`
 ╔══════════════════════════════════════════╗
 ║  🥚 TAMAGOSCII BACKEND                   ║
@@ -408,6 +582,7 @@ app.listen(PORT, () => {
 ║  treasury: ${TREASURY.slice(0,14).padEnd(30)}║
 ║  port:     ${String(PORT).padEnd(30)}║
 ║  db:       ${DB_PATH.split('/').pop().padEnd(30)}║
+║  xaman:    ${xummStatus.padEnd(30)}║
 ╚══════════════════════════════════════════╝
   `);
 });
