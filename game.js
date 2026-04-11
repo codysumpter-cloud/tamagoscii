@@ -1187,46 +1187,6 @@
     $('#btn-minigame').addEventListener('click', openMinigame);
   }
 
-  // ---------- Partner logos ----------
-  async function loadPartners(){
-    const list = $('#partners-list');
-    const wrap = $('#partners');
-    if (!list || !wrap) return;
-    try{
-      const res = await fetch('./logo/logos.json', { cache:'no-cache' });
-      if (!res.ok) throw new Error('no manifest');
-      const partners = await res.json();
-      if (!Array.isArray(partners) || partners.length === 0){
-        wrap.classList.add('empty');
-        return;
-      }
-      list.innerHTML = '';
-      partners.forEach(p => {
-        if (!p || !p.file) return;
-        const a = document.createElement('a');
-        a.href = p.url || '#';
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.title = p.name || p.file;
-        const img = document.createElement('img');
-        img.src = './logo/' + p.file;
-        img.alt = p.name || p.file;
-        img.loading = 'lazy';
-        a.appendChild(img);
-        if (p.tagline){
-          const tag = document.createElement('span');
-          tag.className = 'partner-name';
-          tag.textContent = p.tagline;
-          a.appendChild(tag);
-        }
-        list.appendChild(a);
-      });
-      wrap.classList.remove('empty');
-    }catch(e){
-      wrap.classList.add('empty');
-    }
-  }
-
   // ---------- Login mascot face cycling ----------
   function startLoginMascotAnimation(){
     const faces = ['◔◡◕', '◕‿◕', '◕◡◕', '◔‿◔', '◔◡◕', '◕u◕'];
@@ -1248,7 +1208,6 @@
   function init(){
     setupAudioBar();
     startLoginMascotAnimation();
-    loadPartners();
 
     // Auto-load the music manifest from ./music/tracks.json (if any).
     const cfg = window.TAMA_CONFIG || {};
