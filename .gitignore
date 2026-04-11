@@ -1,0 +1,77 @@
+# ============ Node / backend ============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.pnpm-store/
+
+# ============ Environment variables ============
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+backend/.env
+backend/.env.local
+backend/.env.production
+
+# ============ Database files ============
+*.sqlite
+*.sqlite3
+*.db
+backend/data/
+backend/tamagoscii.sqlite*
+
+# ============ Build / dist ============
+dist/
+build/
+out/
+.next/
+.cache/
+.parcel-cache/
+
+# ============ Logs ============
+logs/
+*.log
+pids/
+*.pid
+*.seed
+
+# ============ Editor / OS ============
+.vscode/*
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============ Deploy / hosting ============
+.vercel/
+.netlify/
+.wrangler/
+.cloudflared/
+
+# ============ Coverage ============
+coverage/
+.nyc_output/
+
+# ============ Music (let user decide) ============
+music/*.mp3
+music/*.ogg
+music/*.wav
+music/*.m4a
+music/*.flac
+!music/README.md
+!music/tracks.json
+!music/.gitkeep
+
+# ============ Secrets / keys ============
+*.pem
+*.key
+*.cert
+secrets/

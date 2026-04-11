@@ -32,12 +32,34 @@ Or open `index.html` directly in your browser.
 ## Files
 
 - `index.html` — markup and UI templates
+- `config.js` — public runtime configuration (mainnet/testnet, treasury, prices)
 - `style.css` — pixel/CRT retro styling with scanlines & glow
-- `creature.js` — shape generator + ASCII face engine
-- `wallet.js` — XRPL wallet (real provider + mock fallback)
-- `audio.js` — procedural SFX engine + music player
+- `creature.js` — egg shape generator + ASCII face engine
+- `wallet.js` — GemWallet integration with optional demo fallback
+- `audio.js` — procedural SFX engine + music player (auto-loads `music/tracks.json`)
 - `game.js` — game logic, stats, economy, modals
+- `music/` — drop your audio files here and list them in `tracks.json`
+- `backend/` — optional Express API that verifies XRPL tx and stores state
+- `deploy.sh` — one-command interactive deploy script
+
+## Deployment
+
+```bash
+./deploy.sh              # interactive menu (frontend / backend / both)
+./deploy.sh preflight    # run checks only (safe to run anytime)
+./deploy.sh frontend     # deploy static frontend (Vercel / Netlify / Cloudflare)
+./deploy.sh backend      # deploy API (Railway / Fly / Render / pm2)
+```
+
+See [`backend/README.md`](./backend/README.md) for the backend setup and
+[`.env.example`](./.env.example) / [`backend/.env.example`](./backend/.env.example)
+for the configuration templates.
 
 ## XRPL Integration
 
-The app tries to use [GemWallet](https://gemwallet.app/) if installed. Otherwise it falls back to a deterministic mock wallet for demo purposes. All micro-transactions are simulated in the mock; to use real XRPL payments, plug in `xrpl.js` or the wallet provider of your choice in `wallet.js`.
+Real payments are handled by [GemWallet](https://gemwallet.app/) on XRPL mainnet.
+The app calls `GemWalletApi.sendPayment()` for every action, attaches a
+`DestinationTag` to identify Tamagoscii payments, and optionally verifies the
+resulting tx hash against the backend (`POST /api/tx/verify`) to credit Scii
+Coins. An explicit **demo mode** is available on the login screen for users
+without a wallet.
