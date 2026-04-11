@@ -55,7 +55,7 @@ window.TAMA_CONFIG = {
      ⚠️ NEVER put your SEED PHRASE in this file. Only the
         public address (starts with "r").
   */
-  TREASURY_ADDRESS: 'rREPLACE_ME_WITH_YOUR_XRPL_ADDRESS',
+  TREASURY_ADDRESS: 'rBGY2TjRzPDFKYFCKqGRF3BEaf9HVpRZXZ',
 
 
   /* ════════════════════════════════════════════════════════
