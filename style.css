@@ -150,6 +150,63 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .connected-addr{font-size:16px;color:var(--muted)}
 .connected-addr span{color:var(--green)}
 .login-footer{margin-top:12px;color:var(--muted);font-size:14px}
+
+/* ============ PARTNERS STRIP ============ */
+.partners{
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.partners.empty{ display: none; }
+.partners-label{
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.35);
+}
+.partners-list{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  max-width: 420px;
+}
+.partners-list a{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.55);
+  filter: grayscale(0.4) brightness(0.85);
+  opacity: 0.8;
+  transition: filter .2s, opacity .2s, transform .2s, background .2s;
+}
+.partners-list a:hover{
+  filter: grayscale(0) brightness(1);
+  opacity: 1;
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+}
+.partners-list img{
+  height: 28px;
+  max-width: 110px;
+  object-fit: contain;
+  display: block;
+}
+.partners-list .partner-name{
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+@media (max-width: 480px){
+  .partners-list{ gap: 12px; }
+  .partners-list img{ height: 22px; max-width: 86px; }
+}
 .hidden{display:none !important}
 .install-link{
   font-family:var(--font-pixel);font-size:10px;color:var(--yellow);
@@ -229,6 +286,108 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   letter-spacing:1px;
 }
 .wallet-badge.hidden{ display:none; }
+
+/* ============ XAMAN MANUAL ADDRESS MODAL ============ */
+.modal-xaman-manual{ max-width: 440px; }
+.xaman-manual-body{
+  display:flex; flex-direction:column; gap:12px;
+  padding: 18px;
+}
+.xaman-hero{
+  display:flex; align-items:center; gap:12px;
+  padding:10px;
+  background: rgba(54, 224, 245, 0.08);
+  border: 1px solid rgba(54, 224, 245, 0.25);
+  border-radius: 8px;
+}
+.xaman-hero-icon{
+  font-size: 28px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan);
+  width: 40px;
+  text-align: center;
+}
+.xaman-hero-text{
+  display:flex; flex-direction:column; gap:2px;
+  flex: 1;
+}
+.xaman-hero-text strong{
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+.xaman-hero-text span{
+  font-size: 13px;
+  color: var(--muted);
+}
+.xaman-open-btn{
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  text-decoration: none;
+  display: block;
+}
+.xaman-sep{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  margin: 4px 0;
+}
+.xaman-sep::before,
+.xaman-sep::after{
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.xaman-input-label{
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--cyan);
+  letter-spacing: 1.5px;
+}
+#xaman-addr-input{
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--green);
+  border: 2px solid rgba(75, 245, 138, 0.4);
+  outline: none;
+  text-align: center;
+  border-radius: 6px;
+  transition: border-color .15s, box-shadow .15s;
+}
+#xaman-addr-input:focus{
+  border-color: var(--green);
+  box-shadow: 0 0 14px rgba(75, 245, 138, 0.4);
+}
+#xaman-addr-input.invalid{
+  border-color: var(--red);
+  box-shadow: 0 0 14px rgba(255, 75, 110, 0.4);
+}
+.xaman-addr-hint{
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.xaman-addr-hint.error{ color: var(--red); }
+.xaman-help{
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.xaman-help a{
+  color: var(--cyan);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--cyan);
+}
 
 /* ============ XAMAN QR MODAL ============ */
 .modal-xaman{ max-width:420px; }

@@ -587,6 +587,17 @@
               queueBackendSync();
               return;
             }
+            // Manual-mode wallet (paste-address) cannot sign tx.
+            // Credit directly with a visible "read-only" notice
+            // so the user knows the shop is in demo mode.
+            if (window.TamaWallet.provider === 'xaman-manual'){
+              state.coins += coins;
+              saveState(); render();
+              window.TamaAudio.sfx('coin');
+              toast('READ-ONLY +'+coins+' ⬢ (no signer)','#ffd94b');
+              queueBackendSync();
+              return;
+            }
             const tx = await window.TamaWallet.pay(xrp, 'tamagoscii:'+pack, pack);
             state.coins += coins;
             saveState(); render();
@@ -982,6 +993,71 @@
     }
   }
 
+  // Opens the "manual Xaman" modal: a deeplink button + a text
+  // input where the user can paste their XRPL address. Works on
+  // 100 % of mobile browsers with zero configuration.
+  function openXamanManualModal(){
+    const cfg = window.TAMA_CONFIG || {};
+    openModal('tpl-xaman-manual', node=>{
+      const input  = node.querySelector('#xaman-addr-input');
+      const submit = node.querySelector('#xaman-addr-submit');
+      const hint   = node.querySelector('#xaman-addr-hint');
+      const defaultHint = hint?.textContent || '';
+      const openBtn = node.querySelector('#xaman-open-app');
+      // Try to remember the last manual address
+      const saved = window.TamaWallet.getPseudo ? null : null;
+      try {
+        const stored = JSON.parse(localStorage.getItem('tamagoscii:wallet') || '{}');
+        if (stored && stored.provider === 'xaman-manual' && stored.address) {
+          input.value = stored.address;
+        }
+      } catch(e){}
+
+      // On mobile, use a universal-link form that Xaman catches.
+      // xaman.app/detect/authorize opens the Xaman app if installed,
+      // otherwise falls back to the app store.
+      if (openBtn){
+        openBtn.href = 'https://xaman.app/';
+      }
+
+      const validate = (addr) => /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(addr.trim());
+      const doSubmit = async () => {
+        const addr = (input.value || '').trim();
+        if (!validate(addr)){
+          input.classList.add('invalid');
+          hint.classList.add('error');
+          hint.textContent = 'Not a valid XRPL address.';
+          input.focus();
+          window.TamaAudio.sfx('error');
+          return;
+        }
+        submit.disabled = true;
+        submit.textContent = 'CONNECTING...';
+        try{
+          const connected = await window.TamaWallet.connectXamanManual(addr);
+          closeModal();
+          afterConnected(connected);
+          toast('XAMAN CONNECTED','#4bf58a');
+        }catch(err){
+          submit.disabled = false;
+          submit.textContent = 'CONNECT ▶';
+          input.classList.add('invalid');
+          hint.classList.add('error');
+          hint.textContent = (err && err.message) || 'Could not connect.';
+          window.TamaAudio.sfx('error');
+        }
+      };
+      submit.addEventListener('click', doSubmit);
+      input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') doSubmit(); });
+      input.addEventListener('input', ()=>{
+        input.classList.remove('invalid');
+        hint.classList.remove('error');
+        hint.textContent = defaultHint;
+      });
+      setTimeout(()=>input.focus(), 100);
+    });
+  }
+
   async function doConnect(provider){
     window.TamaAudio.sfx('connect');
     const btn = document.querySelector(`.wallet-btn[data-provider="${provider}"]`);
@@ -989,6 +1065,22 @@
     if (btn){
       btn.disabled = true;
       btn.classList.add('connecting');
+    }
+    // Special path for Xaman on mobile:
+    // - if no XAMAN_APP_KEY and no backend → open the manual modal
+    //   directly instead of throwing an error.
+    if (provider === 'xaman'){
+      const cfg = window.TAMA_CONFIG || {};
+      const hasPkce    = !!cfg.XAMAN_APP_KEY;
+      const hasBackend = !!(cfg.API_BASE_URL && cfg.API_BASE_URL.trim());
+      if (!hasPkce && !hasBackend){
+        if (btn){
+          btn.disabled = false;
+          btn.classList.remove('connecting');
+        }
+        openXamanManualModal();
+        return;
+      }
     }
     try{
       const addr = await window.TamaWallet.connect(provider);
@@ -1002,6 +1094,22 @@
       window.TamaAudio.sfx('error');
       const msg = e?.message || 'CONNECTION_FAILED';
       console.warn('[connect]', msg, e);
+
+      // For any Xaman-related error, fall back to the manual modal
+      // so the user always has a way to connect.
+      if (provider === 'xaman' && (
+          msg === 'XAMAN_NOT_CONFIGURED' ||
+          msg === 'XUMM_CANCELLED' ||
+          msg === 'XUMM_TIMEOUT' ||
+          msg === 'XUMM_NO_AUTH' ||
+          msg === 'XUMM_NO_ACCOUNT' ||
+          msg === 'XUMM_SDK_MISSING' ||
+          msg === 'XUMM_SIGNIN_FAILED'
+      )){
+        toast('OPEN XAMAN OR ENTER YOUR ADDRESS','#36e0f5');
+        openXamanManualModal();
+        return;
+      }
 
       if (msg === 'GEMWALLET_NOT_INSTALLED'){
         toast('GEMWALLET NOT INSTALLED','#ff4b6e');
@@ -1187,6 +1295,46 @@
     $('#btn-minigame').addEventListener('click', openMinigame);
   }
 
+  // ---------- Partner logos ----------
+  async function loadPartners(){
+    const list = $('#partners-list');
+    const wrap = $('#partners');
+    if (!list || !wrap) return;
+    try{
+      const res = await fetch('./logo/logos.json', { cache:'no-cache' });
+      if (!res.ok) throw new Error('no manifest');
+      const partners = await res.json();
+      if (!Array.isArray(partners) || partners.length === 0){
+        wrap.classList.add('empty');
+        return;
+      }
+      list.innerHTML = '';
+      partners.forEach(p => {
+        if (!p || !p.file) return;
+        const a = document.createElement('a');
+        a.href = p.url || '#';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.title = p.name || p.file;
+        const img = document.createElement('img');
+        img.src = './logo/' + p.file;
+        img.alt = p.name || p.file;
+        img.loading = 'lazy';
+        a.appendChild(img);
+        if (p.tagline){
+          const tag = document.createElement('span');
+          tag.className = 'partner-name';
+          tag.textContent = p.tagline;
+          a.appendChild(tag);
+        }
+        list.appendChild(a);
+      });
+      wrap.classList.remove('empty');
+    }catch(e){
+      wrap.classList.add('empty');
+    }
+  }
+
   // ---------- Login mascot face cycling ----------
   function startLoginMascotAnimation(){
     const faces = ['◔◡◕', '◕‿◕', '◕◡◕', '◔‿◔', '◔◡◕', '◕u◕'];
@@ -1208,6 +1356,7 @@
   function init(){
     setupAudioBar();
     startLoginMascotAnimation();
+    loadPartners();
 
     // Auto-load the music manifest from ./music/tracks.json (if any).
     const cfg = window.TAMA_CONFIG || {};
@@ -1249,15 +1398,14 @@
         if (btn.dataset.provider === preferred) badge.classList.remove('hidden');
         else                                     badge.classList.add('hidden');
       });
-      // Xaman is available if EITHER:
-      //   - XAMAN_APP_KEY is set (client-side PKCE, no backend),
-      //   - OR API_BASE_URL is set (legacy backend flow).
-      const apiUrl = (window.TAMA_CONFIG && window.TAMA_CONFIG.API_BASE_URL) || '';
-      const xamanKey = (window.TAMA_CONFIG && window.TAMA_CONFIG.XAMAN_APP_KEY) || '';
-      if (!apiUrl && !xamanKey && xaman){
-        xaman.classList.add('disabled');
-        xaman.title = 'Set XAMAN_APP_KEY in config.js to enable Xaman (get one at apps.xaman.dev)';
-      }
+      // Xaman is ALWAYS enabled now. Priority:
+      //   1. XummPkce client-side flow (if XAMAN_APP_KEY is set)
+      //   2. Backend flow (if API_BASE_URL is set)
+      //   3. Manual address-paste fallback (always available —
+      //      user copies their XRPL address from the Xaman app
+      //      and pastes it here).
+      // doConnect() handles the priority and opens the manual
+      // modal whenever the auto flows aren't configured or fail.
     }
 
     // Preemptively wire the "Install wallet" links with their URLs and

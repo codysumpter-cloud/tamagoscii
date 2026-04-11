@@ -77,6 +77,12 @@
     <div class="login-footer">
       <span>v1.0.0</span> · <span>© SCII LABS</span> · <span>POWERED BY XRPL</span>
     </div>
+
+    <!-- Partner logos strip (filled from logo/logos.json) -->
+    <div class="partners empty" id="partners" aria-label="Powered by">
+      <div class="partners-label">POWERED BY</div>
+      <div class="partners-list" id="partners-list"></div>
+    </div>
   </div>
 </section>
 
@@ -264,6 +270,41 @@
       <div class="xaman-status" id="xaman-status">Waiting for signature…</div>
       <div class="xaman-spinner" aria-hidden="true">
         <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-xaman-manual">
+  <div class="modal modal-xaman-manual">
+    <div class="modal-header">
+      <h3>CONNECT WITH XAMAN</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body xaman-manual-body">
+      <div class="xaman-hero">
+        <div class="xaman-hero-icon">▦</div>
+        <div class="xaman-hero-text">
+          <strong>Xaman app detected?</strong>
+          <span>Tap to open it or paste your XRPL address</span>
+        </div>
+      </div>
+
+      <a href="xumm://" class="btn btn-primary xaman-open-btn" id="xaman-open-app">
+        ▸ OPEN XAMAN APP
+      </a>
+
+      <div class="xaman-sep"><span>OR</span></div>
+
+      <label class="xaman-input-label" for="xaman-addr-input">PASTE YOUR XRPL ADDRESS</label>
+      <input id="xaman-addr-input" type="text" placeholder="r..." autocomplete="off"
+             autocapitalize="off" spellcheck="false" maxlength="40" />
+      <div class="xaman-addr-hint" id="xaman-addr-hint">Must start with "r" and be 25–35 characters</div>
+      <button class="btn btn-primary" id="xaman-addr-submit">CONNECT ▶</button>
+
+      <div class="xaman-help">
+        Don't have Xaman yet?
+        <a href="https://xaman.app/" target="_blank" rel="noopener">Get it here</a>
       </div>
     </div>
   </div>

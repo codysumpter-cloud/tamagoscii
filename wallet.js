@@ -324,6 +324,28 @@
       return this.address;
     }
 
+    /* ---------- Xaman MANUAL (user-typed address) ----------
+       Simplest possible Xaman flow: the user pastes their XRPL
+       address (copied from the Xaman app) and we treat it as a
+       connected wallet. No backend, no PKCE, no SDK required.
+
+       Limitations:
+         - cannot sign transactions — so real-XRP purchases are
+           disabled. In-game actions (Scii Coins) still work.
+         - we can't verify the user actually owns the address,
+           so this mode is best-effort. */
+    async connectXamanManual(address){
+      if (!address || !/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(address)){
+        throw new Error('INVALID_ADDRESS');
+      }
+      this.address = address;
+      this.network = (window.TAMA_CONFIG && window.TAMA_CONFIG.XRPL_NETWORK) || 'mainnet';
+      this.provider = 'xaman-manual';
+      this.connected = true;
+      this._save();
+      return this.address;
+    }
+
     /* ---------- Demo ---------- */
     async connectDemo(){
       const stored = this._load();
@@ -356,9 +378,14 @@
       if (amountXRP <= 0) return { success:true, hash:'free', amount:0, memo };
 
       switch (this.provider){
-        case 'gemwallet': return this._payGem(amountXRP, memo);
-        case 'xaman':     return this._payXaman(amountXRP, memo, action);
-        case 'demo':      return this._payDemo(amountXRP, memo);
+        case 'gemwallet':     return this._payGem(amountXRP, memo);
+        case 'xaman':         return this._payXaman(amountXRP, memo, action);
+        case 'xaman-manual':
+          // Manual (paste-address) mode can't sign transactions.
+          // The caller should handle this error by falling back
+          // (e.g. dev-mode credit in the shop).
+          throw new Error('MANUAL_MODE_CANNOT_SIGN');
+        case 'demo':          return this._payDemo(amountXRP, memo);
         default: throw new Error('UNKNOWN_PROVIDER');
       }
     }
