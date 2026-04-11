@@ -297,21 +297,37 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 }
 .hud-label{ color:var(--muted); letter-spacing:2px; }
 .hud-val{
-  color:var(--cyan);
-  text-shadow:0 0 6px var(--cyan);
-  font-size:13px;
-}
-.hud-coin{
-  color:var(--yellow);
+  color:#fff;
+  text-shadow:0 0 6px rgba(255,255,255,0.5);
   font-size:14px;
-  margin-left:4px;
 }
 .hud-coin-val{
-  color:var(--yellow);
-  text-shadow:0 0 6px var(--yellow);
+  color:#ffd94b;
+  text-shadow:0 0 8px rgba(255, 189, 0, 0.7);
+  font-size:14px;
 }
-.hud-unit{ color:var(--muted); font-size:8px; }
-.hud-sep{ color:var(--muted); font-size:11px; }
+.hud-unit{
+  color:#c99a2b;
+  font-size:8px;
+  letter-spacing:1px;
+}
+.hud-sep{ color:rgba(255,255,255,0.2); font-size:11px; }
+
+/* ====== SCII COIN ====== */
+.scii-coin{
+  display:inline-flex;
+  width: 26px; height: 26px;
+  filter: drop-shadow(0 0 8px rgba(255, 189, 0, 0.65))
+          drop-shadow(0 0 14px rgba(255, 189, 0, 0.3));
+  animation: coinWobble 3.5s ease-in-out infinite;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.scii-coin svg{ width: 100%; height: 100%; }
+@keyframes coinWobble{
+  0%, 100% { transform: rotate(-2deg); }
+  50%      { transform: rotate(2deg) scale(1.04); }
+}
 .hud-pseudo{
   font-family:var(--font-pixel); font-size:10px;
   color:var(--green);
@@ -336,20 +352,25 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .fun-btn{
   font-family:var(--font-pixel); font-size:9px;
   padding:8px 12px;
-  background: rgba(15, 6, 35, 0.7);
-  color:var(--fg);
-  border: 1.5px solid rgba(54, 224, 245, 0.6);
+  background: rgba(15, 6, 35, 0.5);
+  color: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius:8px;
-  text-shadow:0 0 4px var(--cyan);
-  transition: all .15s ease;
+  transition: all .18s ease;
   white-space:nowrap;
   flex-shrink:0;
+  letter-spacing:1px;
 }
 .fun-btn:hover{
-  background: var(--cyan);
-  color:#000;
-  box-shadow: 0 0 14px var(--cyan);
+  background: rgba(54, 224, 245, 0.15);
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px rgba(54, 224, 245, 0.55);
   transform: translateY(-1px);
+}
+.fun-btn:active{
+  background: rgba(54, 224, 245, 0.3);
+  transform: translateY(0);
 }
 
 /* Stats */
@@ -617,6 +638,101 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 /* Remove the old creature-name element (no longer rendered) */
 .creature-name{ display:none; }
 
+/* ============ EMOJI FLY-TO-EGG ============
+   Big emojis launched from action buttons that fly toward the
+   centre of the egg on each interaction. */
+.fly-emoji{
+  position: fixed;
+  z-index: 100;
+  font-size: clamp(36px, 6vw, 56px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+  animation: flyToEgg 0.85s cubic-bezier(0.32, 0, 0.25, 1.1) forwards;
+  will-change: transform, opacity;
+}
+@keyframes flyToEgg{
+  0%  {
+    transform: translate(-50%, -50%) scale(0.3) rotate(0);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.3) rotate(-12deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(calc(-50% + var(--tx, 0px) * 0.9),
+                         calc(-50% + var(--ty, 0px) * 0.9))
+               scale(1.4) rotate(12deg);
+    opacity: 1;
+  }
+  100%{
+    transform: translate(calc(-50% + var(--tx, 0px)),
+                         calc(-50% + var(--ty, 0px) - 8px))
+               scale(0.4) rotate(40deg);
+    opacity: 0;
+  }
+}
+
+/* ============ EGG REACTION ANIMATIONS ============
+   Each action triggers a different reaction on the egg.
+   We use individual `transform` + existing translate so the
+   egg stays centred.
+*/
+.stage-frame.react-eat{
+  animation: eggReactEat 0.8s ease, eggBreath 4.5s ease-in-out 0.8s infinite;
+}
+@keyframes eggReactEat{
+  0%   { transform: translate(-50%, -50%) scale(1,    1);    }
+  15%  { transform: translate(-50%, -48%) scale(1.08, 0.92); } /* squash */
+  35%  { transform: translate(-50%, -52%) scale(0.92, 1.08); } /* stretch */
+  55%  { transform: translate(-50%, -49%) scale(1.05, 0.96); }
+  75%  { transform: translate(-50%, -51%) scale(0.97, 1.03); }
+  100% { transform: translate(-50%, -50%) scale(1,    1);    }
+}
+
+.stage-frame.react-play{
+  animation: eggReactPlay 0.9s cubic-bezier(.4,1.6,.6,1) , eggBreath 4.5s ease-in-out 0.9s infinite;
+}
+@keyframes eggReactPlay{
+  0%   { transform: translate(-50%, -50%) rotate(0)   scale(1);    }
+  20%  { transform: translate(-50%, -60%) rotate(-8deg) scale(1.04);}
+  40%  { transform: translate(-50%, -50%) rotate(8deg)  scale(1.08);}
+  60%  { transform: translate(-50%, -58%) rotate(-6deg) scale(1.04);}
+  80%  { transform: translate(-50%, -50%) rotate(4deg)  scale(1.02);}
+  100% { transform: translate(-50%, -50%) rotate(0)     scale(1);   }
+}
+
+.stage-frame.react-sleep{
+  animation: eggReactSleep 1.2s ease-in-out, eggBreath 4.5s ease-in-out 1.2s infinite;
+}
+@keyframes eggReactSleep{
+  0%   { transform: translate(-50%, -50%) scale(1);    filter: brightness(1);    }
+  30%  { transform: translate(-50%, -48%) scale(1.02); filter: brightness(0.85); }
+  60%  { transform: translate(-50%, -51%) scale(0.98); filter: brightness(0.7);  }
+  100% { transform: translate(-50%, -50%) scale(1);    filter: brightness(1);    }
+}
+
+.stage-frame.react-clean{
+  animation: eggReactClean 0.85s ease, eggBreath 4.5s ease-in-out 0.85s infinite;
+}
+@keyframes eggReactClean{
+  0%,100% { transform: translate(-50%, -50%) rotate(0); }
+  15%     { transform: translate(-53%, -50%) rotate(-4deg); }
+  30%     { transform: translate(-47%, -50%) rotate(4deg);  }
+  45%     { transform: translate(-52%, -50%) rotate(-3deg); }
+  60%     { transform: translate(-48%, -50%) rotate(3deg);  }
+  75%     { transform: translate(-51%, -50%) rotate(-2deg); }
+}
+
+.stage-frame.react-pet{
+  animation: eggReactPet 0.65s ease, eggBreath 4.5s ease-in-out 0.65s infinite;
+}
+@keyframes eggReactPet{
+  0%,100% { transform: translate(-50%, -50%) scale(1);    }
+  50%     { transform: translate(-50%, -50%) scale(1.06); }
+}
+
 /* ============ CONTROLS OVERLAY ============
    Actions and food rows are PINNED just above the audio bar at
    the bottom of the viewport. Their container is transparent
@@ -656,9 +772,15 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   display: grid;
 }
 
-/* Actions + food items share the same HEIGHT and button shape */
+/* =========================================================
+   Monochrome-by-default button scheme
+   Buttons show only greyscale until the user hovers or
+   clicks. Each button has a CSS variable --btn-color that
+   describes its accent colour, used only on :hover / :active.
+   ========================================================= */
 .action,
 .food-item{
+  --btn-color: 255, 255, 255;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -666,38 +788,58 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   gap: 2px;
   height: 62px;
   padding: 4px 2px;
-  background: rgba(10, 3, 28, 0.75);
-  border: 1.5px solid rgba(160, 61, 255, 0.55);
+  background: rgba(10, 3, 28, 0.70);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
-  color: var(--fg);
+  color: rgba(255, 255, 255, 0.78);
   cursor: pointer;
-  transition: transform .12s, box-shadow .15s, border-color .15s, background .15s;
+  transition:
+    transform .12s,
+    box-shadow .18s,
+    border-color .18s,
+    background .18s,
+    color .18s;
   position: relative;
 }
 .action:hover,
 .food-item:hover{
   transform: translateY(-2px);
-  background: rgba(20, 8, 50, 0.85);
-  box-shadow: 0 0 14px rgba(160, 61, 255, 0.6);
+  background: rgba(var(--btn-color), 0.12);
+  border-color: rgba(var(--btn-color), 0.85);
+  box-shadow: 0 0 18px rgba(var(--btn-color), 0.55);
+  color: #fff;
 }
 .action:active,
-.food-item:active{ transform: translateY(1px) scale(0.97); }
-.action.feed   { border-color: rgba(255, 45, 122, 0.75); }
-.action.feed:hover   { box-shadow: 0 0 14px var(--pink);   }
-.action.play   { border-color: rgba(246, 226, 75, 0.75); }
-.action.play:hover   { box-shadow: 0 0 14px var(--yellow); }
-.action.sleep  { border-color: rgba(54, 224, 245, 0.75); }
-.action.sleep:hover  { box-shadow: 0 0 14px var(--cyan);   }
-.action.clean  { border-color: rgba(75, 245, 138, 0.75); }
-.action.clean:hover  { box-shadow: 0 0 14px var(--green);  }
-.action.pet    { border-color: rgba(198, 109, 255, 0.75); }
-.action-icon  { font-size: 22px; line-height: 1; }
-.action-label { font-family: var(--font-pixel); font-size: 8px; color: var(--fg); letter-spacing: 0.5px; }
-.action-cost  { font-family: var(--font-pixel); font-size: 6px; color: var(--muted); letter-spacing: 0.5px; }
+.food-item:active{
+  transform: translateY(1px) scale(0.96);
+  background: rgba(var(--btn-color), 0.25);
+  box-shadow: 0 0 26px rgba(var(--btn-color), 0.7);
+}
+.action.feed   { --btn-color: 255, 45, 122; }  /* pink */
+.action.play   { --btn-color: 246, 226, 75; }  /* yellow */
+.action.sleep  { --btn-color: 54, 224, 245; }  /* cyan */
+.action.clean  { --btn-color: 75, 245, 138; }  /* green */
+.action.pet    { --btn-color: 198, 109, 255; } /* purple */
+
+.action-icon  { font-size: 22px; line-height: 1; filter: grayscale(0.4); transition: filter .18s; }
+.action:hover .action-icon { filter: grayscale(0); }
+.action-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: inherit;
+  letter-spacing: 0.5px;
+}
+.action-cost {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.5px;
+}
+.action:hover .action-cost { color: rgba(var(--btn-color), 0.9); }
 .action.disabled{ opacity: .5; filter: grayscale(1); pointer-events: none; }
 
 /* Food items: same height as actions, grid of 6 */
-.food-selector{ padding: 8px; }
+.food-selector{ padding: 8px; --btn-color: 255, 255, 255; }
 .food-items{
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -707,12 +849,47 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .food-item{
   font-size: 28px;
   gap: 0;
+  --btn-color: 246, 226, 75; /* yellow accent for food */
+  filter: grayscale(0.3);
 }
+.food-item:hover{ filter: grayscale(0); }
 .food-item.selected{
-  border-color: var(--yellow);
-  box-shadow: 0 0 16px var(--yellow);
-  background: rgba(50, 40, 8, 0.7);
-  transform: scale(1.04);
+  filter: grayscale(0);
+  border-color: rgba(246, 226, 75, 0.9);
+  box-shadow: 0 0 16px rgba(246, 226, 75, 0.6);
+  background: rgba(246, 226, 75, 0.12);
+  transform: scale(1.03);
+}
+
+/* ========== Food bar collapse/expand ========== */
+.food-selector{
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  transition:
+    max-height .28s ease,
+    padding .28s ease,
+    opacity .22s ease,
+    margin .28s ease;
+  border-width: 0;
+  pointer-events: none;
+}
+.controls-overlay.feed-active .food-selector{
+  max-height: 96px;
+  padding: 8px;
+  opacity: 1;
+  margin-bottom: 2px;
+  border-width: 1px;
+  pointer-events: auto;
+}
+.controls-overlay.feed-active .action.feed{
+  background: rgba(255, 45, 122, 0.2);
+  border-color: rgba(255, 45, 122, 0.85);
+  box-shadow: 0 0 18px rgba(255, 45, 122, 0.55);
+  color: #fff;
 }
 
 /* ============ AUDIO PLAYER ============

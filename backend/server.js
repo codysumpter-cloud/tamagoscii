@@ -62,9 +62,11 @@ if (!XUMM_ENABLED){
 
 // Micro-transaction prices and the Scii Coin reward per action.
 // Must match the frontend in config.js — ideally loaded from a shared file.
+// In-game actions cost Scii Coins, not XRP, so they're all 0 here.
+// Shop packs are the only real XRP charges.
 const PRICES = {
-  feed:0.01, play:0.02, sleep:0.01, clean:0.01,
-  pack_small:0.5, pack_medium:2, pack_large:5, pack_whale:10,
+  feed:0, play:0, sleep:0, clean:0,
+  pack_small:0.05, pack_medium:0.1, pack_large:0.2, pack_whale:0.3,
 };
 const REWARDS = {
   feed:5, play:8, sleep:4, clean:4,

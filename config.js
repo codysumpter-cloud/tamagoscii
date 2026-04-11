@@ -112,21 +112,22 @@ window.TAMA_CONFIG = {
   /* ════════════════════════════════════════════════════════
      6. PRICES (in XRP)
      ════════════════════════════════════════════════════════
-     0.01 XRP ≈ 0.005 € at time of writing. These are the
-     amounts the user pays for each action. Feel free to
-     raise them if you want to earn more per player.
+     In-game actions (feed/play/sleep/clean/pet) no longer cost
+     real XRP — they cost Scii Coins so the wallet doesn't pop
+     up on every click. Only the SHOP charges real XRP to buy
+     Scii Coins packs.
      Must match the PRICES object in backend/server.js.
   */
   PRICES: {
-    feed:        0.01,   // click on FEED
-    play:        0.02,   // click on PLAY
-    sleep:       0.01,   // click on SLEEP
-    clean:       0.01,   // click on CLEAN
+    feed:        0,      // Scii Coin only (see COSTS_COINS in game.js)
+    play:        0,
+    sleep:       0,
+    clean:       0,
     pet:         0,      // petting is free
-    pack_small:  0.5,    //  100 Scii Coins pack
-    pack_medium: 2,      //  500 Scii Coins pack
-    pack_large:  5,      // 1500 Scii Coins pack
-    pack_whale:  10,     // 3500 Scii Coins pack
+    pack_small:  0.05,   //  100 Scii Coins pack
+    pack_medium: 0.1,    //  500 Scii Coins pack (best value)
+    pack_large:  0.2,    // 1500 Scii Coins pack
+    pack_whale:  0.3,    // 3500 Scii Coins pack
   },
 
 

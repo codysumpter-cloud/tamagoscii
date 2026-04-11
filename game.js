@@ -13,14 +13,27 @@
   const DECAY_RATES = { hunger:2, happy:1.5, energy:1, hygiene:1 };
   // Prices come from window.TAMA_CONFIG so they can be changed in one place.
   const PRICES = (window.TAMA_CONFIG && window.TAMA_CONFIG.PRICES) || {
-    feed:0.01, play:0.02, sleep:0.01, clean:0.01, pet:0,
+    feed:0, play:0, sleep:0, clean:0, pet:0,
   };
+  // In-game actions cost SCII COINS (not XRP) so the wallet doesn't
+  // pop up on every click. Only the SHOP charges real XRP.
+  const ACTION_COST_COINS = {
+    feed:  3,
+    play:  5,
+    sleep: 2,
+    clean: 2,
+    pet:   0,
+  };
+  // XRP cost is left in for logging/backwards compat but should be 0.
   const ACTION_COST_XRP = {
-    feed:PRICES.feed, play:PRICES.play, sleep:PRICES.sleep,
-    clean:PRICES.clean, pet:PRICES.pet || 0,
+    feed:  PRICES.feed  || 0,
+    play:  PRICES.play  || 0,
+    sleep: PRICES.sleep || 0,
+    clean: PRICES.clean || 0,
+    pet:   PRICES.pet   || 0,
   };
   const ACTION_REWARD_COINS = {
-    feed:5, play:8, sleep:4, clean:4, pet:2,
+    feed:1, play:2, sleep:1, clean:1, pet:1,
   };
   const FOODS = {
     apple:{ hunger:15, happy:2 },
@@ -331,20 +344,70 @@
     if (avg < 25) window.TamaAudio.sfx('sad');
   }
 
+  // ---------- Emoji fly-to-egg ----------
+  // Spawns a big emoji at the triggering button and flies it to the
+  // centre of the egg. Used by feed/play/clean/pet to visualise each
+  // action with tangible impact.
+  const FOOD_EMOJI = {
+    apple:'🍎', cake:'🍰', salad:'🥗', pizza:'🍕', candy:'🍬', sushi:'🍣',
+  };
+  const ACTION_EMOJI = {
+    play:  ['🎮','⚽','🎲','🎯','🎁'],
+    sleep: ['💤','🌙','⭐','😴'],
+    clean: ['🧼','💩','🫧','🧽','💧'],
+    pet:   ['💕','💖','💞','❤️','💝'],
+  };
+  function flyEmojiToEgg(emoji, fromEl){
+    const egg = $('#stage-frame');
+    if (!egg) return;
+    const eggRect = egg.getBoundingClientRect();
+    const targetX = eggRect.left + eggRect.width / 2;
+    const targetY = eggRect.top + eggRect.height / 2;
+
+    let startX, startY;
+    if (fromEl){
+      const r = fromEl.getBoundingClientRect();
+      startX = r.left + r.width/2;
+      startY = r.top + r.height/2;
+    } else {
+      startX = window.innerWidth / 2;
+      startY = window.innerHeight - 140;
+    }
+
+    const el = document.createElement('div');
+    el.className = 'fly-emoji';
+    el.textContent = emoji;
+    el.style.left = startX + 'px';
+    el.style.top  = startY + 'px';
+    el.style.setProperty('--tx', (targetX - startX) + 'px');
+    el.style.setProperty('--ty', (targetY - startY) + 'px');
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 900);
+  }
+
+  // Trigger a specific egg reaction animation (eat/play/clean/pet/sleep).
+  function triggerEggReaction(name){
+    const frame = $('#stage-frame');
+    if (!frame) return;
+    frame.classList.remove('react-eat','react-play','react-clean','react-pet','react-sleep');
+    void frame.offsetWidth; // force reflow so the animation restarts
+    frame.classList.add('react-'+name);
+    setTimeout(()=>frame.classList.remove('react-'+name), 1200);
+  }
+
   // ---------- Actions ----------
-  async function doAction(action){
-    const cost = ACTION_COST_XRP[action];
-    try{
-      if (cost > 0){
-        const tx = await window.TamaWallet.pay(cost, 'tamagoscii:'+action, action);
-        if (tx && tx.hash && !tx.hash.startsWith('demo_') && tx.hash !== 'free'){
-          toast('TX '+tx.hash.slice(0,10)+'…','#4bf58a');
-        }
-      }
-    }catch(e){
-      toast('TX FAILED: '+(e.message||'error'), '#ff4b6e');
+  async function doAction(action, triggerEl){
+    // Actions no longer trigger XRP payments — they cost Scii Coins.
+    // This fixes the "wallet opens every click" issue because only
+    // the SHOP uses real XRP payments now.
+    const coinCost = ACTION_COST_COINS[action] || 0;
+    if (coinCost > 0 && state.coins < coinCost){
+      toast('NOT ENOUGH ⬢ SCII','#ff4b6e');
       window.TamaAudio.sfx('error');
       return;
+    }
+    if (coinCost > 0){
+      state.coins -= coinCost;
     }
 
     const el = $('#creature');
@@ -355,9 +418,13 @@
         state.happy  = clamp(state.happy  + (f.happy||0), 0, 100);
         if (f.hygiene) state.hygiene = clamp(state.hygiene + f.hygiene, 0, 100);
         if (f.energy)  state.energy  = clamp(state.energy  + f.energy,  0, 100);
-        burstParticles(['✦','♦','♥','★','•'], ['#f6e24b','#ff2d7a','#ff8c38'], 16);
-        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
-        el.classList.add('bounce');
+        // Fly the selected food emoji to the egg
+        const selectedBtn = $('.food-item.selected') || triggerEl;
+        flyEmojiToEgg(FOOD_EMOJI[selectedFood] || '🍎', selectedBtn);
+        setTimeout(()=>{
+          burstParticles(['✦','♦','♥','★','•'], ['#f6e24b','#ff2d7a','#ff8c38'], 14);
+          triggerEggReaction('eat');
+        }, 650);
         floatText('+'+f.hunger+' HUNGER','#ff2d7a');
         window.TamaAudio.sfx('feed');
         unlock('first_feed');
@@ -367,9 +434,12 @@
         state.happy = clamp(state.happy + 20, 0, 100);
         state.energy = clamp(state.energy - 8, 0, 100);
         state.hygiene = clamp(state.hygiene - 3, 0, 100);
-        burstParticles(['★','✦','♪','♫','✸','◆'], ['#f6e24b','#36e0f5','#c66dff'], 18);
-        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
-        el.classList.add('joy');
+        const pool = ACTION_EMOJI.play;
+        flyEmojiToEgg(pool[Math.floor(Math.random()*pool.length)], triggerEl);
+        setTimeout(()=>{
+          burstParticles(['★','✦','♪','♫','✸','◆'], ['#f6e24b','#36e0f5','#c66dff'], 18);
+          triggerEggReaction('play');
+        }, 650);
         floatText('+20 HAPPY','#f6e24b');
         window.TamaAudio.sfx('play');
         unlock('first_play');
@@ -378,9 +448,11 @@
       case 'sleep':{
         state.energy = clamp(state.energy + 40, 0, 100);
         state.happy  = clamp(state.happy - 3, 0, 100);
-        for (let i=0;i<5;i++){
-          setTimeout(()=>spawnParticle('z','#36e0f5',{size:22+i*4}), i*120);
+        const pool = ACTION_EMOJI.sleep;
+        for (let i=0;i<3;i++){
+          setTimeout(()=>flyEmojiToEgg(pool[Math.floor(Math.random()*pool.length)], triggerEl), i*150);
         }
+        setTimeout(()=>triggerEggReaction('sleep'), 650);
         floatText('+40 ENERGY','#36e0f5');
         window.TamaAudio.sfx('sleep');
         break;
@@ -388,7 +460,12 @@
       case 'clean':{
         state.hygiene = clamp(state.hygiene + 40, 0, 100);
         state.happy = clamp(state.happy - 2, 0, 100);
-        burstParticles(['~','*','•','✧','◌'], ['#4bf58a','#36e0f5','#7dffcf'], 14);
+        const pool = ACTION_EMOJI.clean;
+        flyEmojiToEgg(pool[Math.floor(Math.random()*pool.length)], triggerEl);
+        setTimeout(()=>{
+          burstParticles(['~','*','•','✧','◌'], ['#4bf58a','#36e0f5','#7dffcf'], 14);
+          triggerEggReaction('clean');
+        }, 650);
         floatText('+40 HYGIENE','#4bf58a');
         window.TamaAudio.sfx('clean');
         if (state.hygiene >= 100) unlock('clean_freak');
@@ -397,9 +474,12 @@
       case 'pet':{
         state.happy = clamp(state.happy + 6, 0, 100);
         petCount++;
-        burstParticles(['♥','♡','❤','ᨳ'], ['#ff2d7a','#ff4b9c','#c66dff'], 10);
-        el.classList.remove('bounce','hurt','joy'); void el.offsetWidth;
-        el.classList.add('bounce');
+        const pool = ACTION_EMOJI.pet;
+        flyEmojiToEgg(pool[Math.floor(Math.random()*pool.length)], triggerEl);
+        setTimeout(()=>{
+          burstParticles(['♥','♡','❤'], ['#ff2d7a','#ff4b9c','#c66dff'], 10);
+          triggerEggReaction('pet');
+        }, 600);
         const frame = $('#stage-frame');
         frame?.classList.remove('pulse-happy'); void frame?.offsetWidth;
         frame?.classList.add('pulse-happy');
@@ -410,18 +490,17 @@
       }
     }
 
-    // Rewards
+    // Small XP reward (stays the same so levelling still works)
     const caring = (state.hunger + state.happy + state.energy + state.hygiene)/4;
-    let reward = ACTION_REWARD_COINS[action];
+    let reward = ACTION_REWARD_COINS[action] || 0;
     if (caring > 70) reward = Math.round(reward * 1.5);
     if (caring > 90) reward = Math.round(reward * 2);
     if (reward > 0){
       state.coins += reward;
       state.xp    += reward;
       state.score += Math.round(reward/2);
-      window.TamaAudio.sfx('coin');
     } else {
-      // Pet has no cost but still gives score
+      // Pet has no reward but still gives score
       state.xp += 1;
       state.score += 1;
     }
@@ -1017,26 +1096,46 @@
     decayTimer = setInterval(tick, DECAY_INTERVAL);
 
     // Reflect configured prices on action buttons
+    // Reflect Scii Coin costs on action buttons
     $$('.action').forEach(btn=>{
       const a = btn.dataset.action;
-      const cost = ACTION_COST_XRP[a];
+      const coins = ACTION_COST_COINS[a] || 0;
       const label = btn.querySelector('.action-cost');
-      if (label) label.textContent = (cost > 0) ? (cost + ' XRP') : 'FREE';
+      if (label) label.textContent = (coins > 0) ? (coins + ' ⬢') : 'FREE';
     });
-    // Action buttons
+    // Action buttons — the food bar auto-opens/closes around FEED.
+    const overlay = $('.controls-overlay');
     $$('.action').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const a = btn.dataset.action;
-        doAction(a);
+        if (a === 'feed'){
+          // Toggle the food bar the first time; second click confirms
+          // with the currently-selected food item.
+          if (!overlay.classList.contains('feed-active')){
+            overlay.classList.add('feed-active');
+            window.TamaAudio.sfx('click');
+            return;
+          }
+          // Already open → confirm: eat + close
+          overlay.classList.remove('feed-active');
+          doAction('feed', btn);
+        } else {
+          overlay.classList.remove('feed-active');
+          doAction(a, btn);
+        }
       });
     });
-    // Food items
+    // Food items: click = select the food used by the next FEED
     $$('.food-item').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
         $$('.food-item').forEach(b=>b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedFood = btn.dataset.food;
         window.TamaAudio.sfx('click');
+        // Eat immediately on second click with this food
+        overlay.classList.remove('feed-active');
+        doAction('feed', btn);
       });
     });
     // Stage click = pet interaction

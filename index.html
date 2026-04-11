@@ -103,7 +103,27 @@
       <span class="hud-label">SCORE</span>
       <span class="hud-val" id="score-value">100</span>
       <span class="hud-sep">·</span>
-      <span class="hud-coin">⬢</span>
+      <span class="scii-coin">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <defs>
+            <radialGradient id="scii-g1" cx="35%" cy="30%" r="70%">
+              <stop offset="0%"  stop-color="#fff7b8"/>
+              <stop offset="45%" stop-color="#ffd94b"/>
+              <stop offset="90%" stop-color="#d77f00"/>
+            </radialGradient>
+            <linearGradient id="scii-g2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#ffea85"/>
+              <stop offset="100%" stop-color="#b86c00"/>
+            </linearGradient>
+          </defs>
+          <polygon points="20,3 35,11 35,29 20,37 5,29 5,11"
+                   fill="url(#scii-g1)" stroke="url(#scii-g2)" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="20,8 30,13.5 30,26.5 20,32 10,26.5 10,13.5"
+                   fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1"/>
+          <text x="20" y="26" text-anchor="middle" font-family="Arial, sans-serif"
+                font-size="16" font-weight="900" fill="#5a3400">S</text>
+        </svg>
+      </span>
       <span class="hud-val hud-coin-val" id="coins-value">500</span>
       <span class="hud-unit">SCII</span>
     </div>
@@ -154,38 +174,11 @@
   <!-- Spacer keeps the egg centered and pushes the controls down -->
   <div class="stage-spacer"></div>
 
-  <!-- Controls overlay — buttons float on top of the egg -->
+  <!-- Controls overlay — buttons float on top of the egg.
+       Food bar is collapsed by default; it appears ABOVE the
+       action bar when the user clicks FEED. -->
   <div class="controls-overlay">
-    <!-- Actions -->
-    <section class="actions">
-      <button class="action feed" data-action="feed">
-        <span class="action-icon">🍎</span>
-        <span class="action-label">FEED</span>
-        <span class="action-cost">0.01 XRP</span>
-      </button>
-      <button class="action play" data-action="play">
-        <span class="action-icon">🎮</span>
-        <span class="action-label">PLAY</span>
-        <span class="action-cost">0.02 XRP</span>
-      </button>
-      <button class="action sleep" data-action="sleep">
-        <span class="action-icon">💤</span>
-        <span class="action-label">SLEEP</span>
-        <span class="action-cost">0.01 XRP</span>
-      </button>
-      <button class="action clean" data-action="clean">
-        <span class="action-icon">🧹</span>
-        <span class="action-label">CLEAN</span>
-        <span class="action-cost">0.01 XRP</span>
-      </button>
-      <button class="action pet" data-action="pet">
-        <span class="action-icon">💕</span>
-        <span class="action-label">PET</span>
-        <span class="action-cost">FREE</span>
-      </button>
-    </section>
-
-    <!-- Food selector -->
+    <!-- Food selector (appears above the action bar when FEED is active) -->
     <section class="food-selector" id="food-selector">
       <div class="food-items">
         <button class="food-item selected" data-food="apple" data-value="15"><span>🍎</span></button>
@@ -195,6 +188,35 @@
         <button class="food-item" data-food="candy" data-value="20"><span>🍬</span></button>
         <button class="food-item" data-food="sushi" data-value="35"><span>🍣</span></button>
       </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="actions">
+      <button class="action feed" data-action="feed">
+        <span class="action-icon">🍎</span>
+        <span class="action-label">FEED</span>
+        <span class="action-cost">3 ⬢</span>
+      </button>
+      <button class="action play" data-action="play">
+        <span class="action-icon">🎮</span>
+        <span class="action-label">PLAY</span>
+        <span class="action-cost">5 ⬢</span>
+      </button>
+      <button class="action sleep" data-action="sleep">
+        <span class="action-icon">💤</span>
+        <span class="action-label">SLEEP</span>
+        <span class="action-cost">2 ⬢</span>
+      </button>
+      <button class="action clean" data-action="clean">
+        <span class="action-icon">🧹</span>
+        <span class="action-label">CLEAN</span>
+        <span class="action-cost">2 ⬢</span>
+      </button>
+      <button class="action pet" data-action="pet">
+        <span class="action-icon">💕</span>
+        <span class="action-label">PET</span>
+        <span class="action-cost">FREE</span>
+      </button>
     </section>
   </div>
 
@@ -263,28 +285,28 @@
     <div class="modal-body">
       <p class="shop-desc">Buy packs of Scii Coins with XRP micro-transactions</p>
       <div class="shop-grid">
-        <div class="shop-item" data-pack="pack_small" data-xrp="0.5" data-coins="100">
+        <div class="shop-item" data-pack="pack_small" data-xrp="0.05" data-coins="100">
           <div class="shop-pack">📦</div>
           <div class="shop-amount">100 ⬢</div>
-          <div class="shop-price">0.5 XRP</div>
+          <div class="shop-price">0.05 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-pack="pack_medium" data-xrp="2" data-coins="500">
+        <div class="shop-item" data-pack="pack_medium" data-xrp="0.1" data-coins="500">
           <div class="shop-pack">🎁</div>
           <div class="shop-amount">500 ⬢</div>
-          <div class="shop-price">2 XRP</div>
+          <div class="shop-price">0.1 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-pack="pack_large" data-xrp="5" data-coins="1500">
+        <div class="shop-item" data-pack="pack_large" data-xrp="0.2" data-coins="1500">
           <div class="shop-pack">💎</div>
           <div class="shop-amount">1500 ⬢</div>
-          <div class="shop-price">5 XRP</div>
+          <div class="shop-price">0.2 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
-        <div class="shop-item" data-pack="pack_whale" data-xrp="10" data-coins="3500">
+        <div class="shop-item" data-pack="pack_whale" data-xrp="0.3" data-coins="3500">
           <div class="shop-pack">👑</div>
           <div class="shop-amount">3500 ⬢</div>
-          <div class="shop-price">10 XRP</div>
+          <div class="shop-price">0.3 XRP</div>
           <button class="btn btn-small buy">BUY</button>
         </div>
       </div>
