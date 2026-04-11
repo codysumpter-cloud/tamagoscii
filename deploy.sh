@@ -81,7 +81,7 @@ preflight() {
   fi
 
   # Config sanity: treasury still the placeholder?
-  if grep -q "rTamagosciiTreasuryReplaceMe" config.js 2>/dev/null; then
+  if grep -qE "rREPLACE_ME_WITH_YOUR_XRPL_ADDRESS|rTamagosciiTreasuryReplaceMe" config.js 2>/dev/null; then
     warn "config.js still uses the PLACEHOLDER treasury address"
     warn "edit TREASURY_ADDRESS in config.js before going live"
     read -r -p "Continue anyway? [y/N] " ans
