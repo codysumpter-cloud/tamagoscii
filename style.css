@@ -259,103 +259,227 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   100%{clip-path:inset(10% 0 60% 0)}
 }
 
-/* ============ GAME LAYOUT ============ */
+/* ============ GAME LAYOUT ============
+   The egg is a fixed, full-screen background. All UI elements
+   (HUD, stats, info-row, controls) float on top with dark
+   translucent backgrounds. */
 #game-screen{
-  padding:10px 14px 70px;
-  gap:10px;
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
+  padding:0;
+  gap:0;
+  overflow:hidden;
+  position:relative;
 }
 
-/* HUD */
-.hud{
-  display:grid;grid-template-columns:1fr auto 1fr;
-  align-items:center;gap:8px;padding:6px 4px;
-  border-bottom:2px dashed rgba(160,61,255,0.3);
+.glass{
+  background: rgba(5, 0, 20, 0.62);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.hud-left{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-.hud-center{text-align:center}
-.hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.score-block{display:flex;flex-direction:column;line-height:1}
-.score-label{font-family:var(--font-pixel);font-size:10px;color:var(--cyan);text-shadow:var(--glow)}
-.score-value{font-family:var(--font-pixel);font-size:18px;color:var(--cyan);text-shadow:var(--glow)}
-.coins-block{font-family:var(--font-pixel);font-size:10px;color:var(--yellow);text-shadow:0 0 6px var(--yellow)}
-.coin-icon{margin-right:4px}
-.coin-name{margin-left:4px;opacity:.8}
-.title-small{font-family:var(--font-pixel);font-size:10px;color:var(--pink);text-shadow:var(--glow)}
-.title-small span{color:var(--cyan);margin-left:4px}
-.age-block{font-family:var(--font-pixel);font-size:10px;color:var(--muted)}
-.age-block #age-value{color:var(--fg);margin-left:4px}
-.player-profile{font-family:var(--font-pixel);font-size:9px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
-.profile-pseudo{color:var(--green);text-shadow:0 0 6px var(--green)}
-.profile-addr{color:var(--muted)}
+
+/* HUD — one line, score left, pseudo right */
+.hud{
+  position:relative; z-index:10;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px;
+  background: rgba(5, 0, 20, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(160, 61, 255, 0.25);
+  gap:10px;
+  flex-wrap:nowrap;
+}
+.hud-score{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-pixel); font-size:10px;
+  color:var(--fg);
+  flex-wrap:nowrap;
+  overflow:hidden;
+}
+.hud-label{ color:var(--muted); letter-spacing:2px; }
+.hud-val{
+  color:var(--cyan);
+  text-shadow:0 0 6px var(--cyan);
+  font-size:13px;
+}
+.hud-coin{
+  color:var(--yellow);
+  font-size:14px;
+  margin-left:4px;
+}
+.hud-coin-val{
+  color:var(--yellow);
+  text-shadow:0 0 6px var(--yellow);
+}
+.hud-unit{ color:var(--muted); font-size:8px; }
+.hud-sep{ color:var(--muted); font-size:11px; }
+.hud-pseudo{
+  font-family:var(--font-pixel); font-size:10px;
+  color:var(--green);
+  text-shadow:0 0 6px rgba(75, 245, 138, 0.6);
+  letter-spacing:1px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:44vw;
+}
+
+/* Fun-row (SHOP / MINI-GAME / SHARE / ACHIEVEMENTS) on one line */
+.fun-row{
+  position:relative; z-index:10;
+  display:flex; flex-wrap:nowrap; gap:6px;
+  justify-content:center;
+  padding:8px 10px;
+  background: rgba(5, 0, 20, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(160, 61, 255, 0.2);
+  overflow-x:auto;
+}
+.fun-btn{
+  font-family:var(--font-pixel); font-size:9px;
+  padding:8px 12px;
+  background: rgba(15, 6, 35, 0.7);
+  color:var(--fg);
+  border: 1.5px solid rgba(54, 224, 245, 0.6);
+  border-radius:8px;
+  text-shadow:0 0 4px var(--cyan);
+  transition: all .15s ease;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.fun-btn:hover{
+  background: var(--cyan);
+  color:#000;
+  box-shadow: 0 0 14px var(--cyan);
+  transform: translateY(-1px);
+}
 
 /* Stats */
-.stats{display:flex;flex-direction:column;gap:6px;max-width:640px;width:100%;margin:0 auto}
-.stat{display:grid;grid-template-columns:80px 1fr 40px;align-items:center;gap:8px}
-.stat-label{font-family:var(--font-pixel);font-size:10px}
-.stat-hunger .stat-label{color:var(--pink)}
-.stat-happy .stat-label{color:var(--yellow)}
-.stat-energy .stat-label{color:var(--cyan)}
-.stat-hygiene .stat-label{color:var(--green)}
-.bar{
-  height:14px;background:#000;border:2px solid #3a1a6b;
-  position:relative;box-shadow:inset 0 0 6px rgba(0,0,0,.6);
-  image-rendering:pixelated;
+.stats{
+  position:relative; z-index:10;
+  display:flex; flex-direction:column;
+  gap:5px;
+  padding:10px 14px;
+  background: rgba(5, 0, 20, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(160, 61, 255, 0.2);
 }
-.bar-fill{height:100%;transition:width .35s ease}
-.stat-hunger .bar-fill{background:repeating-linear-gradient(90deg,var(--pink) 0 4px,#c91d5c 4px 8px)}
-.stat-happy .bar-fill{background:repeating-linear-gradient(90deg,var(--yellow) 0 4px,#c7b810 4px 8px)}
-.stat-energy .bar-fill{background:repeating-linear-gradient(90deg,var(--cyan) 0 4px,#1ab0c0 4px 8px)}
-.stat-hygiene .bar-fill{background:repeating-linear-gradient(90deg,var(--green) 0 4px,#1ac05a 4px 8px)}
-.stat-value{font-family:var(--font-pixel);font-size:10px;text-align:right;color:var(--fg)}
+.stat{
+  display:grid;
+  grid-template-columns: 70px 1fr 34px;
+  align-items:center;
+  gap:8px;
+}
+.stat-label{ font-family:var(--font-pixel); font-size:9px; }
+.stat-hunger .stat-label  { color:var(--pink);  }
+.stat-happy .stat-label   { color:var(--yellow);}
+.stat-energy .stat-label  { color:var(--cyan);  }
+.stat-hygiene .stat-label { color:var(--green); }
+.bar{
+  height:12px;
+  background:rgba(0, 0, 0, 0.5);
+  border: 1.5px solid rgba(58, 26, 107, 0.9);
+  position:relative;
+  box-shadow: inset 0 0 6px rgba(0,0,0,.6);
+  border-radius:3px; overflow:hidden;
+}
+.bar-fill{ height:100%; transition: width .35s ease; }
+.stat-hunger  .bar-fill{ background:linear-gradient(90deg, var(--pink),   #c91d5c); }
+.stat-happy   .bar-fill{ background:linear-gradient(90deg, var(--yellow), #c7b810); }
+.stat-energy  .bar-fill{ background:linear-gradient(90deg, var(--cyan),   #1ab0c0); }
+.stat-hygiene .bar-fill{ background:linear-gradient(90deg, var(--green),  #1ac05a); }
+.stat-value{
+  font-family:var(--font-pixel); font-size:9px;
+  text-align:right; color:var(--fg);
+}
 
-/* Mood */
-.mood{display:flex;flex-direction:column;align-items:center;gap:4px}
-.mood-label{font-family:var(--font-pixel);font-size:14px;color:var(--purple);text-shadow:var(--glow);letter-spacing:3px}
-.level-label{font-family:var(--font-pixel);font-size:11px;color:var(--cyan);text-shadow:var(--glow)}
+/* Info row: AGE · EMOTION · LEVEL */
+.info-row{
+  position:relative; z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  gap:10px;
+  padding:10px 12px;
+  background: rgba(5, 0, 20, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(160, 61, 255, 0.2);
+  font-family:var(--font-pixel);
+  font-size:11px;
+  letter-spacing:2px;
+}
+.info-item{
+  display:inline-flex; align-items:center; gap:4px;
+  color:var(--fg);
+}
+.info-lbl{ color:var(--muted); font-size:8px; margin-right:2px; }
+.info-age      { color:var(--cyan);   text-shadow:0 0 6px var(--cyan);   }
+.info-mood     { color:var(--purple); text-shadow:0 0 8px var(--purple); transition: color .8s ease, text-shadow .8s ease; }
+.info-level    { color:var(--yellow); text-shadow:0 0 6px var(--yellow); }
+.info-sep      { color:var(--muted); font-size:14px; }
+
+/* Spacer makes the stage-frame extend down to meet the controls */
+.stage-spacer{ flex:1; min-height: 80px; position:relative; z-index:1; }
 
 /* ============ STAGE / EGG ============
-   The egg is rendered entirely in CSS.
-   JS only updates --egg-color / --egg-glow / --egg-aspect
-   via creature.getProfile() on each render. */
-.stage{
-  flex:1;min-height:220px;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  gap:10px;position:relative;padding:10px 0;
-}
+   The egg is positioned absolutely and fills most of the
+   viewport, sitting BEHIND all the HUD/controls which use
+   translucent dark backgrounds so the egg shows through. */
 .stage-frame{
   --egg-color: #b040ff;
   --egg-glow:  #8020ff;
-  --egg-aspect: 1.2;
-  position:relative;
-  width:min(340px, 82vw);
-  aspect-ratio: 1 / var(--egg-aspect);
-  /* Asymmetric egg silhouette: narrow top, wider bottom */
-  border-radius: 50% 50% 48% 48% / 58% 58% 42% 42%;
+  --egg-aspect: 1.25;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width:  min(94vw, 560px);
+  height: min(82vh, 720px);
+  z-index: 1;
+  /* Asymmetric egg silhouette — narrow top, wider bottom */
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
   background:
-    radial-gradient(ellipse at 50% 62%,
-      rgba(80, 30, 140, 0.88) 0%,
-      rgba(45, 12, 85, 0.94) 55%,
-      rgba(22, 6, 50, 0.97) 100%);
-  border: 4px solid var(--egg-color);
+    radial-gradient(ellipse at 50% 35%,
+      rgba(140, 70, 220, 0.35) 0%,
+      rgba(90, 35, 160, 0.72) 40%,
+      rgba(45, 12, 90, 0.94) 85%,
+      rgba(22, 6, 50, 0.98) 100%);
+  border: 5px solid var(--egg-color);
   box-shadow:
-    0 0 24px var(--egg-color),
-    0 0 60px var(--egg-glow),
-    inset 0 0 40px rgba(130, 60, 200, 0.25),
-    inset 0 -16px 32px rgba(20, 5, 45, 0.4);
+    0 0 40px var(--egg-color),
+    0 0 90px var(--egg-glow),
+    0 0 160px rgba(160, 61, 255, 0.35),
+    inset 0 0 60px rgba(160, 80, 230, 0.25),
+    inset 0 -24px 50px rgba(20, 5, 45, 0.5);
   display:flex;
   align-items:center;
   justify-content:center;
-  overflow:hidden;
-  transition: border-color .6s ease, box-shadow .6s ease;
+  overflow:visible;
   cursor:pointer;
-  animation: eggBreath 4s ease-in-out infinite;
+  transition:
+    border-color 1.2s ease,
+    box-shadow  1.2s ease,
+    background  1.2s ease;
+  animation: eggBreath 4.5s ease-in-out infinite;
+}
+/* Soft specular highlight at the top of the egg */
+.stage-frame::before{
+  content: '';
+  position: absolute;
+  top: 8%;
+  left: 22%;
+  width: 38%;
+  height: 22%;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.04) 60%,
+    transparent 100%);
+  border-radius: 50%;
+  filter: blur(10px);
+  pointer-events: none;
 }
 @keyframes eggBreath{
-  0%,100%{ transform:scale(1); }
-  50%    { transform:scale(1.018); }
+  0%,100%{ transform: translate(-50%, -50%) scale(1);    }
+  50%    { transform: translate(-50%, -50%) scale(1.012);}
 }
 
 /* The face: ASCII-art eyes + mouth, huge and white, centered.
@@ -490,57 +614,100 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   20%{opacity:1}
   100%{opacity:0;transform:translate(-50%,-30px)}
 }
-.creature-name{font-family:var(--font-pixel);font-size:11px;color:var(--cyan);text-shadow:var(--glow);letter-spacing:2px}
+/* Remove the old creature-name element (no longer rendered) */
+.creature-name{ display:none; }
 
-/* Actions */
+/* ============ CONTROLS OVERLAY ============
+   The actions and food rows sit on top of the egg in the lower
+   portion of the screen, with dark glass backgrounds. */
+.controls-overlay{
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 78px; /* bottom padding clears audio bar */
+  margin-top: auto;
+}
+
+.actions,
+.food-selector{
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(3, 0, 15, 0.72);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .actions{
-  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
-  max-width:640px;width:100%;margin:0 auto;
+  grid-template-columns: repeat(5, 1fr);
+  display: grid;
 }
-.action{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:10px 4px;
-  background:#0f0623;
-  border:2px solid var(--purple);
-  position:relative;transition:transform .08s;
-}
-.action:hover{transform:translateY(-2px);box-shadow:0 0 12px var(--purple)}
-.action:active{transform:translateY(1px)}
-.action.feed{border-color:var(--pink)}
-.action.feed:hover{box-shadow:0 0 12px var(--pink)}
-.action.play{border-color:var(--yellow)}
-.action.play:hover{box-shadow:0 0 12px var(--yellow)}
-.action.sleep{border-color:var(--cyan)}
-.action.sleep:hover{box-shadow:0 0 12px var(--cyan)}
-.action.clean{border-color:var(--green)}
-.action.clean:hover{box-shadow:0 0 12px var(--green)}
-.action.pet{border-color:var(--purple)}
-.action-icon{font-size:24px;line-height:1}
-.action-label{font-family:var(--font-pixel);font-size:9px;color:var(--fg)}
-.action-cost{font-family:var(--font-pixel);font-size:7px;color:var(--muted)}
-.action.disabled{opacity:.5;filter:grayscale(1);pointer-events:none}
 
-/* Food selector */
-.food-selector{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:640px;width:100%;margin:0 auto}
-.selector-title{font-family:var(--font-pixel);font-size:9px;color:var(--muted)}
-.food-items{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;width:100%}
+/* Actions + food items share the same HEIGHT and button shape */
+.action,
 .food-item{
-  aspect-ratio:1;background:#0f0623;border:2px solid #3a1a6b;
-  display:flex;align-items:center;justify-content:center;font-size:26px;
-  transition:all .12s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 62px;
+  padding: 4px 2px;
+  background: rgba(10, 3, 28, 0.75);
+  border: 1.5px solid rgba(160, 61, 255, 0.55);
+  border-radius: 10px;
+  color: var(--fg);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .15s, border-color .15s, background .15s;
+  position: relative;
 }
-.food-item.selected{border-color:var(--yellow);box-shadow:0 0 12px var(--yellow);transform:scale(1.05)}
-.food-item:hover{border-color:var(--yellow)}
+.action:hover,
+.food-item:hover{
+  transform: translateY(-2px);
+  background: rgba(20, 8, 50, 0.85);
+  box-shadow: 0 0 14px rgba(160, 61, 255, 0.6);
+}
+.action:active,
+.food-item:active{ transform: translateY(1px) scale(0.97); }
+.action.feed   { border-color: rgba(255, 45, 122, 0.75); }
+.action.feed:hover   { box-shadow: 0 0 14px var(--pink);   }
+.action.play   { border-color: rgba(246, 226, 75, 0.75); }
+.action.play:hover   { box-shadow: 0 0 14px var(--yellow); }
+.action.sleep  { border-color: rgba(54, 224, 245, 0.75); }
+.action.sleep:hover  { box-shadow: 0 0 14px var(--cyan);   }
+.action.clean  { border-color: rgba(75, 245, 138, 0.75); }
+.action.clean:hover  { box-shadow: 0 0 14px var(--green);  }
+.action.pet    { border-color: rgba(198, 109, 255, 0.75); }
+.action-icon  { font-size: 22px; line-height: 1; }
+.action-label { font-family: var(--font-pixel); font-size: 8px; color: var(--fg); letter-spacing: 0.5px; }
+.action-cost  { font-family: var(--font-pixel); font-size: 6px; color: var(--muted); letter-spacing: 0.5px; }
+.action.disabled{ opacity: .5; filter: grayscale(1); pointer-events: none; }
 
-/* Fun row */
-.fun-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:640px;margin:4px auto;width:100%}
-.fun-btn{
-  font-family:var(--font-pixel);font-size:9px;
-  padding:8px 12px;background:#0f0623;color:var(--fg);
-  border:2px solid var(--cyan);text-shadow:0 0 4px var(--cyan);
-  transition:all .1s;
+/* Food items: same height as actions, grid of 6 */
+.food-selector{ padding: 8px; }
+.food-items{
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  width: 100%;
 }
-.fun-btn:hover{background:var(--cyan);color:#000}
+.food-item{
+  font-size: 28px;
+  gap: 0;
+}
+.food-item.selected{
+  border-color: var(--yellow);
+  box-shadow: 0 0 16px var(--yellow);
+  background: rgba(50, 40, 8, 0.7);
+  transform: scale(1.04);
+}
 
 /* ============ AUDIO PLAYER ============ */
 .audio-bar{
@@ -998,31 +1165,46 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 640px){
-  body{font-size:18px}
-  #game-screen{padding:8px 10px 74px}
-  .hud{grid-template-columns:1fr 1fr;gap:6px}
-  .hud-center{display:none}
-  .stat{grid-template-columns:68px 1fr 36px;gap:6px}
-  .stat-label{font-size:9px}
-  .action{padding:8px 2px}
-  .action-icon{font-size:22px}
-  .action-label{font-size:8px}
-  .action-cost{display:none}
-  .food-items{grid-template-columns:repeat(6,1fr)}
-  .food-item{font-size:22px}
-  .stage-frame{width:min(320px,82vw)}
-  .fun-btn{font-size:8px;padding:6px 8px}
-  .audio-bar{padding:5px 6px;gap:4px}
-  .volume{width:50px}
-  .audio-btn{min-width:30px;height:30px;font-size:11px;padding:4px}
-  .title-en{font-size:32px}
+  body{ font-size:18px; }
+  #game-screen{ padding:0; }
+  .hud{ padding:8px 10px; }
+  .hud-label{ display:none; }
+  .hud-val{ font-size:12px; }
+  .hud-pseudo{ font-size:9px; max-width:38vw; }
+  .fun-row{ padding:6px 8px; gap:4px; }
+  .fun-btn{ font-size:8px; padding:6px 8px; }
+  .stats{ padding:8px 12px; gap:4px; }
+  .stat{ grid-template-columns: 58px 1fr 28px; gap:6px; }
+  .stat-label{ font-size:8px; }
+  .info-row{ padding:8px 12px; font-size:10px; gap:6px; }
+  .info-lbl{ display:none; }
+  .stage-frame{
+    width: min(96vw, 460px);
+    height: min(72vh, 620px);
+  }
+  .controls-overlay{ padding:8px 10px 72px; gap:6px; }
+  .actions, .food-selector{ padding:6px; gap:5px; }
+  .action, .food-item{ height:58px; }
+  .action-icon{ font-size:20px; }
+  .action-label{ font-size:7px; }
+  .action-cost{ display:none; }
+  .food-item{ font-size:24px; }
+  .audio-bar{ padding:0; }
+  .audio-main{ padding:8px 10px; gap:6px; }
+  .audio-btn{ width:34px; height:34px; }
+  .audio-btn.audio-btn-lg{ width:42px; height:42px; }
+  .title-en{ font-size:32px; }
 }
 @media (max-width: 380px){
-  .actions{grid-template-columns:repeat(5,1fr)}
-  .action{padding:6px 2px}
-  .action-icon{font-size:18px}
-  .food-item{font-size:18px}
+  .action, .food-item{ height:52px; }
+  .action-icon{ font-size:18px; }
+  .food-item{ font-size:20px; }
+  .action-label{ font-size:6px; }
+  .fun-btn{ font-size:7px; padding:5px 6px; }
 }
 @media (min-height: 900px){
-  .stage-frame{width:min(440px,80vw)}
+  .stage-frame{
+    width: min(94vw, 620px);
+    height: min(82vh, 820px);
+  }
 }

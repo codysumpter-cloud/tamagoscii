@@ -232,6 +232,43 @@
     return 'angry';
   }
 
+  // Mood → colour tint that gets BLENDED with the creature's base colour
+  // so the egg shifts gently when the mood changes while keeping the
+  // wallet-based identity recognisable.
+  const MOOD_TINTS = {
+    happy:    '#ffd94b', // sunny gold
+    content:  null,       // keep base
+    hungry:   '#ff8c38', // warm orange
+    sad:      '#4b78ff', // cold blue
+    sleeping: '#5b6acf', // soft indigo
+    playing:  '#ff2d7a', // vivid pink
+    dirty:    '#7a5b1c', // muddy brown
+    loved:    '#ff4b9c', // bright pink
+    angry:    '#ff4b6e', // red
+    dead:     '#555555', // desaturated grey
+  };
+  // Mood → the text colour of the info-row "mood" label
+  const MOOD_LABEL_COLORS = {
+    happy:'#4bf58a', content:'#c66dff', hungry:'#ff8c38',
+    sad:'#4b9cff', sleeping:'#36e0f5', dirty:'#7a5b1c',
+    angry:'#ff4b6e', dead:'#555', loved:'#ff2d7a', playing:'#f6e24b',
+  };
+
+  /* ---------- small colour helpers ---------- */
+  function hexToRgb(hex){
+    const n = parseInt(String(hex).replace('#',''), 16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+  }
+  function rgbToHex(r,g,b){
+    const h = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2,'0');
+    return '#' + h(r) + h(g) + h(b);
+  }
+  function mixHex(a, b, t){
+    const [ar,ag,ab] = hexToRgb(a);
+    const [br,bg,bb] = hexToRgb(b);
+    return rgbToHex(ar*(1-t)+br*t, ag*(1-t)+bg*t, ab*(1-t)+bb*t);
+  }
+
   // ---------- Render ----------
   function render(){
     // Bars
@@ -248,35 +285,31 @@
 
     // Mood
     state.mood = computeMood();
-    $('#mood-label').textContent = state.mood.toUpperCase();
-    const moodColors = {
-      happy:'#4bf58a', content:'#c66dff', hungry:'#ff8c38',
-      sad:'#4b9cff', sleeping:'#36e0f5', dirty:'#7a5b1c',
-      angry:'#ff4b6e', dead:'#555', loved:'#ff2d7a', playing:'#f6e24b',
-    };
-    $('#mood-label').style.color = moodColors[state.mood] || '#c66dff';
+    const moodEl = $('#mood-label');
+    if (moodEl){
+      moodEl.textContent = state.mood.toUpperCase();
+      moodEl.style.color = MOOD_LABEL_COLORS[state.mood] || '#c66dff';
+    }
 
-    // Creature: drive the CSS egg with the creature's colour
-    // and render only the face (eyes + mouth) inside.
+    // Creature: drive the CSS egg with a colour that BLENDS the
+    // wallet-seeded base with a mood tint, so it shifts gently.
     const frame = $('#stage-frame');
-    if (frame && creature.color){
-      frame.style.setProperty('--egg-color', creature.color.main);
-      frame.style.setProperty('--egg-glow',  creature.color.glow);
-      frame.style.setProperty('--egg-aspect', String(creature.variant?.aspect || 1.2));
+    if (frame && creature && creature.color){
+      const base = creature.color.main;
+      const baseGlow = creature.color.glow;
+      const tint = MOOD_TINTS[state.mood];
+      const color = tint ? mixHex(base, tint, 0.42) : base;
+      const glow  = tint ? mixHex(baseGlow, tint, 0.5) : baseGlow;
+      frame.style.setProperty('--egg-color', color);
+      frame.style.setProperty('--egg-glow',  glow);
+      frame.style.setProperty('--egg-aspect', String(creature.variant?.aspect || 1.22));
     }
     const el = $('#creature');
-    el.textContent = creature.faceFor(state.mood);
+    if (el) el.textContent = creature.faceFor(state.mood);
 
-    // Profile
-    $('#profile-pseudo').textContent = state.pseudo || 'GUEST';
-    $('#profile-addr').textContent = window.TamaShortAddr(window.TamaWallet.address);
-    const netEl = $('#profile-network');
-    if (netEl){
-      const p = window.TamaWallet.provider;
-      const n = window.TamaWallet.network || 'mainnet';
-      netEl.textContent = (p === 'gemwallet' ? '◈ '+n.toUpperCase() : '◈ DEMO');
-      netEl.style.color = (p === 'gemwallet') ? '#4bf58a' : '#f6e24b';
-    }
+    // Profile — only pseudo, no address, no network badge
+    const pseudoEl = $('#profile-pseudo');
+    if (pseudoEl) pseudoEl.textContent = state.pseudo || 'GUEST';
   }
 
   // ---------- Game ticks ----------
@@ -1037,29 +1070,34 @@
     // Wire up the XRPL QR modal used by wallet.js for Xaman flows
     setupXamanUI();
 
-    // Reorder wallet buttons so the recommended one for the
-    // current platform comes first.
+    // Wallet picker: on mobile we hide GemWallet entirely because
+    // the GemWallet browser extension only exists on desktop.
+    // On desktop both GemWallet and Xaman are offered.
     const picker = $('#wallet-picker');
     const preferred = window.TamaWallet.preferredProvider();
+    const isMobile = window.TamaIsMobile && window.TamaIsMobile();
     if (picker){
       const gem   = picker.querySelector('[data-provider="gemwallet"]');
       const xaman = picker.querySelector('[data-provider="xaman"]');
       picker.innerHTML = '';
-      if (preferred === 'xaman'){
+      if (isMobile){
+        // Mobile → Xaman only
+        if (xaman) picker.appendChild(xaman);
+      } else if (preferred === 'xaman'){
         if (xaman) picker.appendChild(xaman);
         if (gem)   picker.appendChild(gem);
       } else {
         if (gem)   picker.appendChild(gem);
         if (xaman) picker.appendChild(xaman);
       }
-      // Only the preferred one shows the "recommended" badge
+      // Highlight the recommended wallet for this platform
       picker.querySelectorAll('.wallet-btn').forEach(btn=>{
         const badge = btn.querySelector('.wallet-badge');
         if (!badge) return;
         if (btn.dataset.provider === preferred) badge.classList.remove('hidden');
         else                                     badge.classList.add('hidden');
       });
-      // Hide Xaman option if no backend is configured
+      // Disable Xaman if no backend is configured (it can't work without one)
       const apiUrl = (window.TAMA_CONFIG && window.TAMA_CONFIG.API_BASE_URL) || '';
       if (!apiUrl && xaman){
         xaman.classList.add('disabled');

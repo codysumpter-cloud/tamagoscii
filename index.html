@@ -90,34 +90,33 @@
 <!-- ============ MAIN GAME ============ -->
 <main id="game-screen" class="screen">
 
-  <!-- Top HUD -->
+  <!-- Full-screen egg sits in the background of the whole screen -->
+  <div class="stage-frame" id="stage-frame">
+    <div class="creature" id="creature">◔◡◕</div>
+    <div class="stage-particles" id="particles"></div>
+    <div class="floating-text" id="floating-text"></div>
+  </div>
+
+  <!-- Top HUD: single-line header with score, coins, pseudo -->
   <header class="hud">
-    <div class="hud-left">
-      <div class="score-block">
-        <span class="score-label">SCORE</span>
-        <span class="score-value" id="score-value">100</span>
-      </div>
-      <div class="coins-block">
-        <span class="coin-icon">⬢</span>
-        <span id="coins-value">500</span>
-        <span class="coin-name">SCII</span>
-      </div>
+    <div class="hud-score">
+      <span class="hud-label">SCORE</span>
+      <span class="hud-val" id="score-value">100</span>
+      <span class="hud-sep">·</span>
+      <span class="hud-coin">⬢</span>
+      <span class="hud-val hud-coin-val" id="coins-value">500</span>
+      <span class="hud-unit">SCII</span>
     </div>
-    <div class="hud-center">
-      <div class="title-small">TAMAGOSCII <span>タマゴッシー</span></div>
-    </div>
-    <div class="hud-right">
-      <div class="player-profile" id="player-profile">
-        <span class="profile-pseudo" id="profile-pseudo">—</span>
-        <span class="profile-addr" id="profile-addr">—</span>
-        <span class="profile-network" id="profile-network">—</span>
-      </div>
-      <div class="age-block">
-        <span class="age-label">AGE:</span>
-        <span id="age-value">0MIN</span>
-      </div>
-    </div>
+    <div class="hud-pseudo" id="profile-pseudo">—</div>
   </header>
+
+  <!-- Fun buttons on one line, right below the HUD -->
+  <section class="fun-row">
+    <button class="fun-btn" id="btn-shop">⬢ SHOP</button>
+    <button class="fun-btn" id="btn-minigame">★ MINI-GAME</button>
+    <button class="fun-btn" id="btn-share">↗ SHARE</button>
+    <button class="fun-btn" id="btn-achievements">♦ ACHIEVEMENTS</button>
+  </section>
 
   <!-- Stats bars -->
   <section class="stats">
@@ -143,71 +142,61 @@
     </div>
   </section>
 
-  <!-- Mood & Level -->
-  <section class="mood">
-    <div class="mood-label" id="mood-label">CONTENT</div>
-    <div class="level-label">LV.<span id="level-value">1</span></div>
+  <!-- Info row: age · emotion · level on one line, above the egg -->
+  <section class="info-row">
+    <span class="info-item info-age"><span class="info-lbl">AGE</span><span id="age-value">0MIN</span></span>
+    <span class="info-sep">·</span>
+    <span class="info-item info-mood" id="mood-label">CONTENT</span>
+    <span class="info-sep">·</span>
+    <span class="info-item info-level">LV.<span id="level-value">1</span></span>
   </section>
 
-  <!-- Creature stage -->
-  <section class="stage">
-    <div class="stage-frame" id="stage-frame">
-      <div class="creature" id="creature">◔◡◕</div>
-      <div class="stage-particles" id="particles"></div>
-      <div class="floating-text" id="floating-text"></div>
-    </div>
-    <div class="creature-name" id="creature-name">◆ SCII ◆</div>
-  </section>
+  <!-- Spacer keeps the egg centered and pushes the controls down -->
+  <div class="stage-spacer"></div>
 
-  <!-- Actions -->
-  <section class="actions">
-    <button class="action feed" data-action="feed">
-      <span class="action-icon">🍎</span>
-      <span class="action-label">FEED</span>
-      <span class="action-cost">0.01 XRP</span>
-    </button>
-    <button class="action play" data-action="play">
-      <span class="action-icon">🎮</span>
-      <span class="action-label">PLAY</span>
-      <span class="action-cost">0.02 XRP</span>
-    </button>
-    <button class="action sleep" data-action="sleep">
-      <span class="action-icon">💤</span>
-      <span class="action-label">SLEEP</span>
-      <span class="action-cost">0.01 XRP</span>
-    </button>
-    <button class="action clean" data-action="clean">
-      <span class="action-icon">🧹</span>
-      <span class="action-label">CLEAN</span>
-      <span class="action-cost">0.01 XRP</span>
-    </button>
-    <button class="action pet" data-action="pet">
-      <span class="action-icon">💕</span>
-      <span class="action-label">PET</span>
-      <span class="action-cost">FREE</span>
-    </button>
-  </section>
+  <!-- Controls overlay — buttons float on top of the egg -->
+  <div class="controls-overlay">
+    <!-- Actions -->
+    <section class="actions">
+      <button class="action feed" data-action="feed">
+        <span class="action-icon">🍎</span>
+        <span class="action-label">FEED</span>
+        <span class="action-cost">0.01 XRP</span>
+      </button>
+      <button class="action play" data-action="play">
+        <span class="action-icon">🎮</span>
+        <span class="action-label">PLAY</span>
+        <span class="action-cost">0.02 XRP</span>
+      </button>
+      <button class="action sleep" data-action="sleep">
+        <span class="action-icon">💤</span>
+        <span class="action-label">SLEEP</span>
+        <span class="action-cost">0.01 XRP</span>
+      </button>
+      <button class="action clean" data-action="clean">
+        <span class="action-icon">🧹</span>
+        <span class="action-label">CLEAN</span>
+        <span class="action-cost">0.01 XRP</span>
+      </button>
+      <button class="action pet" data-action="pet">
+        <span class="action-icon">💕</span>
+        <span class="action-label">PET</span>
+        <span class="action-cost">FREE</span>
+      </button>
+    </section>
 
-  <!-- Food selector -->
-  <section class="food-selector" id="food-selector">
-    <div class="selector-title">FOOD:</div>
-    <div class="food-items">
-      <button class="food-item selected" data-food="apple" data-value="15"><span>🍎</span></button>
-      <button class="food-item" data-food="cake" data-value="25"><span>🍰</span></button>
-      <button class="food-item" data-food="salad" data-value="10"><span>🥗</span></button>
-      <button class="food-item" data-food="pizza" data-value="30"><span>🍕</span></button>
-      <button class="food-item" data-food="candy" data-value="20"><span>🍬</span></button>
-      <button class="food-item" data-food="sushi" data-value="35"><span>🍣</span></button>
-    </div>
-  </section>
-
-  <!-- Fun features -->
-  <section class="fun-row">
-    <button class="fun-btn" id="btn-shop">⬢ SHOP</button>
-    <button class="fun-btn" id="btn-minigame">★ MINI-GAME</button>
-    <button class="fun-btn" id="btn-share">↗ SHARE</button>
-    <button class="fun-btn" id="btn-achievements">♦ ACHIEVEMENTS</button>
-  </section>
+    <!-- Food selector -->
+    <section class="food-selector" id="food-selector">
+      <div class="food-items">
+        <button class="food-item selected" data-food="apple" data-value="15"><span>🍎</span></button>
+        <button class="food-item" data-food="cake" data-value="25"><span>🍰</span></button>
+        <button class="food-item" data-food="salad" data-value="10"><span>🥗</span></button>
+        <button class="food-item" data-food="pizza" data-value="30"><span>🍕</span></button>
+        <button class="food-item" data-food="candy" data-value="20"><span>🍬</span></button>
+        <button class="food-item" data-food="sushi" data-value="35"><span>🍣</span></button>
+      </div>
+    </section>
+  </div>
 
   <!-- Audio Player Bottom Bar -->
   <footer class="audio-bar" id="audio-bar">
