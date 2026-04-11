@@ -150,6 +150,63 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .connected-addr{font-size:16px;color:var(--muted)}
 .connected-addr span{color:var(--green)}
 .login-footer{margin-top:12px;color:var(--muted);font-size:14px}
+
+/* ============ PARTNERS STRIP ============ */
+.partners{
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.partners.empty{ display:none; }
+.partners-label{
+  font-family:var(--font-pixel);
+  font-size:8px;
+  letter-spacing:2px;
+  color: rgba(255, 255, 255, 0.35);
+}
+.partners-list{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:18px;
+  max-width: 420px;
+}
+.partners-list a{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.55);
+  filter: grayscale(0.4) brightness(0.85);
+  opacity: 0.8;
+  transition: filter .2s, opacity .2s, transform .2s, background .2s;
+}
+.partners-list a:hover{
+  filter: grayscale(0) brightness(1);
+  opacity: 1;
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+}
+.partners-list img{
+  height: 28px;
+  max-width: 110px;
+  object-fit: contain;
+  display: block;
+}
+.partners-list .partner-name{
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+@media (max-width: 480px){
+  .partners-list{ gap: 12px; }
+  .partners-list img{ height: 22px; max-width: 86px; }
+}
 .hidden{display:none !important}
 .install-link{
   font-family:var(--font-pixel);font-size:10px;color:var(--yellow);
@@ -476,13 +533,15 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 .stage-spacer{ display:none; }
 
 /* ============ STAGE / EGG ============
-   The egg is positioned absolutely and fills most of the
-   viewport, sitting BEHIND all the HUD/controls which use
-   translucent dark backgrounds so the egg shows through. */
+   The egg is now rendered with the 🥚 emoji + an overlaid ASCII
+   face (same treatment as the login mascot). The stage-frame
+   itself has no background or border: all the glow comes from
+   drop-shadows on the emoji. --egg-color / --egg-glow are still
+   set by game.js so the halo takes the mood-tinted colour. */
 .stage-frame{
   --egg-color: #b040ff;
   --egg-glow:  #8020ff;
-  --egg-aspect: 1.25;
+  --egg-aspect: 1.22;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -490,69 +549,62 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   width:  min(94vw, 560px);
   height: min(82vh, 720px);
   z-index: 1;
-  /* Asymmetric egg silhouette — narrow top, wider bottom */
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background:
-    radial-gradient(ellipse at 50% 35%,
-      rgba(140, 70, 220, 0.35) 0%,
-      rgba(90, 35, 160, 0.72) 40%,
-      rgba(45, 12, 90, 0.94) 85%,
-      rgba(22, 6, 50, 0.98) 100%);
-  border: 5px solid var(--egg-color);
-  box-shadow:
-    0 0 40px var(--egg-color),
-    0 0 90px var(--egg-glow),
-    0 0 160px rgba(160, 61, 255, 0.35),
-    inset 0 0 60px rgba(160, 80, 230, 0.25),
-    inset 0 -24px 50px rgba(20, 5, 45, 0.5);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:visible;
-  cursor:pointer;
-  transition:
-    border-color 1.2s ease,
-    box-shadow  1.2s ease,
-    background  1.2s ease;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  cursor: pointer;
   animation: eggBreath 4.5s ease-in-out infinite;
 }
-/* Soft specular highlight at the top of the egg */
-.stage-frame::before{
-  content: '';
+.stage-frame::before{ display: none; }
+
+/* The big 🥚 emoji that draws the egg body */
+.stage-emoji{
   position: absolute;
-  top: 8%;
-  left: 22%;
-  width: 38%;
-  height: 22%;
-  background: radial-gradient(ellipse at center,
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(255, 255, 255, 0.04) 60%,
-    transparent 100%);
-  border-radius: 50%;
-  filter: blur(10px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(280px, 68vh, 540px);
+  line-height: 1;
+  filter:
+    drop-shadow(0 0 28px var(--egg-color))
+    drop-shadow(0 0 72px var(--egg-glow))
+    drop-shadow(0 0 140px rgba(160, 61, 255, 0.35));
+  transition: filter 1.2s ease;
   pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  will-change: filter, transform;
 }
+
 @keyframes eggBreath{
   0%,100%{ transform: translate(-50%, -50%) scale(1);    }
   50%    { transform: translate(-50%, -50%) scale(1.012);}
 }
 
-/* The face: ASCII-art eyes + mouth, huge and white, centered.
-   We use a tighter letter-spacing and a stronger glow so the
-   expression is readable from across the room. */
+/* The face: ASCII-art eyes + mouth overlaid on the emoji.
+   Uses the individual `translate` CSS property for centering so
+   `transform` stays free for animations (bounce / shake / joy). */
 .creature{
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  translate: -50% -50%;
   font-family: 'VT323', 'Share Tech Mono', monospace;
-  font-size: clamp(78px, 22vw, 160px);
-  font-weight: 400;
-  color: #ffffff;
-  letter-spacing: 0.02em;
-  line-height: 0.9;
+  font-size: clamp(44px, 11vw, 92px);
+  font-weight: 900;
+  color: #2a1800;
+  letter-spacing: 0.04em;
+  line-height: 1;
   text-align: center;
   white-space: nowrap;
   text-shadow:
-    0 0 12px rgba(255, 255, 255, 0.85),
-    0 0 24px rgba(255, 255, 255, 0.55),
-    0 0 48px rgba(255, 255, 255, 0.25);
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 6px rgba(255, 255, 255, 0.2);
   user-select: none;
   transition: text-shadow .3s ease, transform .3s ease;
   animation: faceIdle 5s ease-in-out infinite;
@@ -597,22 +649,23 @@ button{cursor:pointer;background:none;border:none;color:inherit}
   75%    { transform: scale(1.14) rotate(-3deg);}
 }
 
-/* Glow pulse on the egg when the creature is super happy */
-.stage-frame.pulse-happy{
+/* Glow pulse — animates the drop-shadow on the inner .stage-emoji */
+.stage-frame.pulse-happy .stage-emoji{
   animation: eggPulseHappy 1.6s ease-in-out;
 }
 @keyframes eggPulseHappy{
-  0%,100%{ box-shadow:
-    0 0 24px var(--egg-color),
-    0 0 60px var(--egg-glow),
-    inset 0 0 40px rgba(130, 60, 200, 0.25),
-    inset 0 -16px 32px rgba(20, 5, 45, 0.4); }
-  50% { box-shadow:
-    0 0 48px var(--egg-color),
-    0 0 120px var(--egg-glow),
-    0 0 180px var(--egg-glow),
-    inset 0 0 60px rgba(255, 255, 255, 0.12),
-    inset 0 -16px 32px rgba(20, 5, 45, 0.4); }
+  0%,100%{
+    filter:
+      drop-shadow(0 0 28px var(--egg-color))
+      drop-shadow(0 0 72px var(--egg-glow))
+      drop-shadow(0 0 140px rgba(160, 61, 255, 0.35));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 48px var(--egg-color))
+      drop-shadow(0 0 120px var(--egg-glow))
+      drop-shadow(0 0 200px var(--egg-glow));
+  }
 }
 
 .stage-particles{ position:absolute; inset:0; pointer-events:none; z-index:3; overflow:visible; }
