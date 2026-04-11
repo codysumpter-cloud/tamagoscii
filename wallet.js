@@ -162,6 +162,15 @@
       }
     }
 
+    /* Returns true if the connected wallet is also the configured
+       treasury (source == destination). XRPL rejects such tx so we
+       have to skip real payments and credit packs directly. */
+    isSelfTreasury(){
+      const cfg = window.TAMA_CONFIG;
+      if (!cfg || !cfg.TREASURY_ADDRESS || !this.address) return false;
+      return this.address === cfg.TREASURY_ADDRESS;
+    }
+
     /* ---------- GemWallet ---------- */
     async connectGem(){
       const cfg = window.TAMA_CONFIG;
@@ -193,12 +202,94 @@
       return address;
     }
 
-    /* ---------- Xaman ---------- */
+    /* ---------- Xaman ----------
+       Two paths:
+         1. Client-side XummPkce (preferred, works on mobile
+            without any backend — uses the user's XAMAN_APP_KEY).
+         2. Backend flow (legacy, requires API_BASE_URL +
+            XUMM secret on the server).
+       We try PKCE first and fall back to backend if it's not
+       loaded or the config is missing. */
     async connectXaman(){
+      const cfg = window.TAMA_CONFIG || {};
+
+      // ---- 1. Client-side PKCE (no backend needed) ----
+      if (cfg.XAMAN_APP_KEY && await this._waitForXummPkce()){
+        try {
+          return await this._connectXamanPkce();
+        } catch (e) {
+          console.warn('[TamaWallet] XummPkce sign-in failed:', e.message || e);
+          if (e.message === 'XUMM_CANCELLED') throw e;
+          // else fall through to backend attempt
+        }
+      }
+
+      // ---- 2. Backend flow ----
       if (!apiBase()){
-        const err = new Error('XAMAN_BACKEND_REQUIRED');
+        // Neither PKCE nor backend available → tell the user how to set it up
+        const err = new Error('XAMAN_NOT_CONFIGURED');
+        err.userMessage = cfg.XAMAN_APP_KEY
+          ? 'Xaman SDK failed to load. Check your connection.'
+          : 'Set XAMAN_APP_KEY in config.js (https://apps.xaman.dev/).';
         throw err;
       }
+      return await this._connectXamanBackend();
+    }
+
+    async _waitForXummPkce(timeoutMs = 3000){
+      if (window.XummPkce) return true;
+      return new Promise(resolve => {
+        let done = false;
+        const finish = v => { if (!done){ done = true; resolve(v); } };
+        document.addEventListener('xumm-ready', () => finish(true), { once:true });
+        const start = Date.now();
+        const iv = setInterval(() => {
+          if (window.XummPkce){ clearInterval(iv); finish(true); }
+          else if (window.__xummReady === false){ clearInterval(iv); finish(false); }
+          else if (Date.now() - start > timeoutMs){ clearInterval(iv); finish(!!window.XummPkce); }
+        }, 120);
+      });
+    }
+
+    async _connectXamanPkce(){
+      const cfg = window.TAMA_CONFIG;
+      if (!window.XummPkce) throw new Error('XUMM_SDK_MISSING');
+      // `implicit: true` skips the OAuth redirect/popup loop on
+      // platforms that support direct in-app callbacks.
+      const xumm = new window.XummPkce(cfg.XAMAN_APP_KEY, {
+        implicit: true,
+      });
+      // Some versions of the SDK expose an event-based API,
+      // others return a promise. Handle both.
+      let authorized;
+      try {
+        authorized = await xumm.authorize();
+      } catch (e) {
+        throw new Error('XUMM_CANCELLED');
+      }
+      if (!authorized && typeof xumm.state === 'function'){
+        authorized = await xumm.state();
+      }
+      if (!authorized){
+        throw new Error('XUMM_NO_AUTH');
+      }
+      const account = authorized.me?.account
+                   || authorized.account
+                   || authorized.jwt_data?.sub
+                   || null;
+      if (!account) throw new Error('XUMM_NO_ACCOUNT');
+
+      this._xummInstance   = xumm;
+      this._xummAuthorized = authorized;
+      this.address  = account;
+      this.network  = cfg.XRPL_NETWORK || 'mainnet';
+      this.provider = 'xaman';
+      this.connected = true;
+      this._save();
+      return this.address;
+    }
+
+    async _connectXamanBackend(){
       // 1. Ask the backend for a sign-in payload
       const payload = await apiCall('/api/xaman/signin', { method:'POST' });
       if (!payload || !payload.uuid){
@@ -274,6 +365,12 @@
 
     async _payGem(amountXRP, memo){
       const cfg = window.TAMA_CONFIG;
+      // XRPL refuses tx where source == destination. Detect upfront
+      // with a dedicated error so the caller can fall back to a
+      // "dev mode" credit without opening the wallet popup.
+      if (this.isSelfTreasury()){
+        throw new Error('SELF_TREASURY');
+      }
       if (!window.GemWalletApi || typeof window.GemWalletApi.sendPayment !== 'function'){
         throw new Error('GEMWALLET_UNAVAILABLE');
       }
@@ -298,8 +395,20 @@
     }
 
     async _payXaman(amountXRP, memo, action){
-      // The backend knows the amount & destination from `action`.
-      // For a raw amount (e.g. shop packs), we pass `action` too.
+      const cfg = window.TAMA_CONFIG;
+      if (this.isSelfTreasury()) throw new Error('SELF_TREASURY');
+
+      // ---- Prefer client-side PKCE payload if authorized ----
+      if (this._xummAuthorized && this._xummAuthorized.sdk){
+        try {
+          return await this._payXamanPkce(amountXRP, memo, action);
+        } catch (e) {
+          console.warn('[TamaWallet] PKCE payment failed, trying backend', e.message || e);
+          if (e.message === 'XUMM_CANCELLED') throw e;
+        }
+      }
+
+      // ---- Backend fallback ----
       if (!apiBase()) throw new Error('XAMAN_BACKEND_REQUIRED');
       if (!action) throw new Error('XAMAN_REQUIRES_ACTION');
 
@@ -329,6 +438,82 @@
         throw new Error('XUMM_NOT_SIGNED');
       }
       return { success:true, hash:status.txid, amount:amountXRP, memo };
+    }
+
+    async _payXamanPkce(amountXRP, memo, action){
+      const cfg = window.TAMA_CONFIG;
+      const sdk = this._xummAuthorized?.sdk;
+      if (!sdk || typeof sdk.payload?.create !== 'function'){
+        throw new Error('XUMM_SDK_INCOMPLETE');
+      }
+      const txjson = {
+        TransactionType: 'Payment',
+        Destination: cfg.TREASURY_ADDRESS,
+        Amount: xrpToDrops(amountXRP),
+      };
+      if (cfg.DESTINATION_TAG) txjson.DestinationTag = cfg.DESTINATION_TAG;
+      if (action || memo){
+        const enc = s => Array.from(new TextEncoder().encode(String(s)))
+          .map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+        txjson.Memos = [{
+          Memo:{
+            MemoType: enc('tamagoscii'),
+            MemoData: enc(action || memo || 'pay'),
+          }
+        }];
+      }
+      const payload = await sdk.payload.create(txjson);
+      if (!payload || !payload.uuid) throw new Error('XUMM_PAYLOAD_FAILED');
+
+      // Show QR on desktop, or auto-open the app on mobile
+      if (this._xamanUI && this._xamanUI.show){
+        this._xamanUI.show({
+          title:'CONFIRM PAYMENT',
+          subtitle:`${amountXRP} XRP`,
+          qr: payload.refs?.qr_png,
+          deeplink: payload.next?.always,
+        });
+      }
+      if (isMobile() && payload.next?.always){
+        // On mobile, open the Xaman deep-link automatically
+        window.location.href = payload.next.always;
+      }
+
+      // Wait for resolution via the PKCE SDK subscribe helper
+      let resolved;
+      try {
+        if (typeof payload.resolved === 'object' && typeof payload.resolved.then === 'function'){
+          resolved = await payload.resolved;
+        } else if (typeof sdk.payload.subscribe === 'function'){
+          const sub = await sdk.payload.subscribe(payload.uuid);
+          resolved = await sub.resolved;
+        } else if (payload.refs?.websocket_status){
+          resolved = await new Promise((res, rej) => {
+            const ws = new WebSocket(payload.refs.websocket_status);
+            const t = setTimeout(() => rej(new Error('XUMM_TIMEOUT')), 5*60*1000);
+            ws.onmessage = (msg) => {
+              try {
+                const d = JSON.parse(msg.data);
+                if (d.signed === true){ clearTimeout(t); ws.close(); res(d); }
+                else if (d.signed === false || d.cancelled || d.expired){
+                  clearTimeout(t); ws.close(); rej(new Error('XUMM_CANCELLED'));
+                }
+              } catch(e){ /* ignore non-JSON heartbeats */ }
+            };
+            ws.onerror = () => { clearTimeout(t); rej(new Error('XUMM_WS_ERROR')); };
+          });
+        } else {
+          throw new Error('XUMM_NO_POLLING');
+        }
+      } finally {
+        if (this._xamanUI && this._xamanUI.hide) this._xamanUI.hide();
+      }
+
+      if (!resolved || resolved.signed === false){
+        throw new Error('XUMM_CANCELLED');
+      }
+      const txid = resolved.txid || resolved.response?.txid || resolved.txblob;
+      return { success:true, hash: txid || 'xumm_ok', amount: amountXRP, memo };
     }
 
     async _payDemo(amountXRP, memo){

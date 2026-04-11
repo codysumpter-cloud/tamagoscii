@@ -75,15 +75,49 @@ button{cursor:pointer;background:none;border:none;color:inherit}
 }
 .tagline{color:var(--green);text-shadow:0 0 6px var(--green);font-size:20px;margin-top:4px}
 .ascii-egg{
-  font-family:var(--font-term);
-  color:var(--yellow);
-  text-shadow:0 0 6px var(--yellow);
-  font-size:16px;line-height:1;white-space:pre;
-  animation:float 3s ease-in-out infinite;
+  /* Kept for backwards compatibility; the new mascot replaces it. */
+  display:none;
 }
-@keyframes float{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-6px)}
+.login-mascot{
+  position:relative;
+  width: 240px;
+  height: 240px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  filter:
+    drop-shadow(0 0 22px rgba(246, 226, 75, 0.55))
+    drop-shadow(0 0 48px rgba(246, 226, 75, 0.25));
+  animation: loginEggFloat 3s ease-in-out infinite;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.login-mascot-emoji{
+  font-size: 200px;
+  line-height: 1;
+  pointer-events: none;
+}
+.login-mascot-face{
+  position: absolute;
+  font-family: 'VT323','Share Tech Mono', monospace;
+  font-size: 54px;
+  font-weight: 900;
+  color: #2a1800;
+  letter-spacing: 0.06em;
+  top: 52%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.25);
+  transition: opacity .25s ease;
+}
+@keyframes loginEggFloat{
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(-10px) rotate(-1deg); }
+}
+@media (max-width: 480px){
+  .login-mascot{ width: 180px; height: 180px; }
+  .login-mascot-emoji{ font-size: 150px; }
+  .login-mascot-face{ font-size: 40px; }
 }
 .login-actions{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
 .btn{

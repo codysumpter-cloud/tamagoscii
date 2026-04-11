@@ -28,17 +28,10 @@
       <p class="tagline">&gt; THE XRPL ASCII PET _</p>
     </div>
 
-    <pre class="ascii-egg" id="ascii-egg">
-      ████████
-    ██░░░░░░░░██
-   ██░░▓▓░░░░▓▓██
-  ██░░░░░░░░░░░░██
-  ██░░░░  ░░  ░░██
-  ██░░░░░░░░░░░░██
-   ██░░░░░░░░░░██
-    ██░░░░░░░░██
-      ████████
-    </pre>
+    <div class="login-mascot" aria-hidden="true">
+      <div class="login-mascot-emoji">🥚</div>
+      <div class="login-mascot-face" id="login-mascot-face">◔◡◕</div>
+    </div>
 
     <div class="login-actions" id="login-actions">
       <p class="hint">
@@ -409,6 +402,37 @@
   }
   window.__gemReady = false;
   console.error('[Tamagoscii] GemWallet SDK could not be loaded from any CDN.');
+})();
+</script>
+
+<!-- Xaman OAuth2 PKCE loader: client-side SDK that lets the app
+     sign in and create payloads WITHOUT a backend. Perfect for
+     mobile browsers where GemWallet extensions don't exist. -->
+<script type="module">
+(async function loadXummPkce(){
+  const sources = [
+    'https://esm.sh/xumm-oauth2-pkce@2.8.7',
+    'https://cdn.jsdelivr.net/npm/xumm-oauth2-pkce@2.8.7/+esm',
+    'https://esm.sh/xumm-oauth2-pkce',
+  ];
+  for (const src of sources){
+    try {
+      const mod = await import(src);
+      const XummPkce = mod.XummPkce || mod.default?.XummPkce || mod.default || mod;
+      if (typeof XummPkce !== 'function'){
+        throw new Error('XummPkce class missing on loaded module');
+      }
+      window.XummPkce = XummPkce;
+      window.__xummReady = true;
+      console.log('[Tamagoscii] XummPkce loaded from', src);
+      document.dispatchEvent(new CustomEvent('xumm-ready'));
+      return;
+    } catch (e) {
+      console.warn('[Tamagoscii] XummPkce load failed from', src, '→', e.message || e);
+    }
+  }
+  window.__xummReady = false;
+  console.error('[Tamagoscii] XummPkce could not be loaded from any CDN.');
 })();
 </script>
 

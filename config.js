@@ -79,11 +79,25 @@ window.TAMA_CONFIG = {
      ════════════════════════════════════════════════════════
      Keep this list as-is unless you want to disable one.
      - GemWallet works only on desktop (browser extension)
-     - Xaman   works only on mobile  (phone app + QR code)
+     - Xaman   works on mobile and desktop (phone app + QR)
   */
   WALLET_PROVIDERS: ['gemwallet', 'xaman'],
   GEMWALLET_INSTALL_URL: 'https://gemwallet.app/',
   XAMAN_INSTALL_URL: 'https://xaman.app/',
+
+  /* ════════════════════════════════════════════════════════
+     4b. XAMAN APP KEY (client-side, public, safe to commit)
+     ════════════════════════════════════════════════════════
+     Create an application at https://apps.xaman.dev/ and paste
+     the "API Key" here. This is PUBLIC by design — the secret
+     stays hidden on Xaman's servers. With it, mobile users can
+     connect and sign transactions directly from the Xaman app
+     WITHOUT needing your own backend.
+
+     If left empty, the Xaman button will fall back to the
+     backend API (if API_BASE_URL is set) or be disabled.
+  */
+  XAMAN_APP_KEY: '',
 
 
   /* ════════════════════════════════════════════════════════

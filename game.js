@@ -576,9 +576,21 @@
           btn.disabled = true;
           btn.textContent = '…';
           try{
+            // Dev-mode shortcut: if the connected wallet IS the
+            // treasury, XRPL would refuse a self-payment. Credit
+            // the pack directly without opening the wallet popup.
+            if (window.TamaWallet.isSelfTreasury && window.TamaWallet.isSelfTreasury()){
+              state.coins += coins;
+              saveState(); render();
+              window.TamaAudio.sfx('coin');
+              toast('DEV +'+coins+' ⬢ (wallet = treasury)','#ffd94b');
+              queueBackendSync();
+              return;
+            }
             const tx = await window.TamaWallet.pay(xrp, 'tamagoscii:'+pack, pack);
             state.coins += coins;
             saveState(); render();
+            queueBackendSync();
             window.TamaAudio.sfx('coin');
             toast('+'+coins+' ⬢ SCII COINS','#f6e24b');
             if (tx && tx.hash && !tx.hash.startsWith('demo_') && tx.hash !== 'free'){
@@ -586,8 +598,15 @@
             }
           }catch(e){
             const msg = (e && e.message) || 'error';
-            toast('TX FAILED: '+msg,'#ff4b6e');
-            window.TamaAudio.sfx('error');
+            if (msg === 'SELF_TREASURY'){
+              // Should have been handled above, but keep as fallback
+              state.coins += coins;
+              saveState(); render();
+              toast('DEV +'+coins+' ⬢ (wallet = treasury)','#ffd94b');
+            } else {
+              toast('TX FAILED: '+msg,'#ff4b6e');
+              window.TamaAudio.sfx('error');
+            }
           }finally{
             btn.disabled = false;
             btn.textContent = originalLabel;
@@ -955,6 +974,12 @@
     const stored = window.TamaWallet.getPseudo();
     if (stored) $('#pseudo-input').value = stored;
     setTimeout(()=>$('#pseudo-input')?.focus(), 50);
+    // Warn if the connected wallet is also the configured treasury
+    if (window.TamaWallet.isSelfTreasury && window.TamaWallet.isSelfTreasury()){
+      setTimeout(()=>{
+        toast('DEV MODE: Treasury = your wallet. Packs are free.','#ffd94b');
+      }, 500);
+    }
   }
 
   async function doConnect(provider){
@@ -988,6 +1013,14 @@
         }
       } else if (msg === 'GEMWALLET_REJECTED'){
         toast('CONNECTION REJECTED','#ff4b6e');
+      } else if (msg === 'XAMAN_NOT_CONFIGURED'){
+        toast(e?.userMessage || 'XAMAN NEEDS AN APP KEY','#ffd94b');
+        const link = $('#install-xaman');
+        if (link){
+          link.href = 'https://apps.xaman.dev/';
+          link.textContent = '▸ Get a Xaman App Key';
+          link.classList.remove('hidden');
+        }
       } else if (msg === 'XAMAN_BACKEND_REQUIRED' || msg === 'XUMM_DISABLED'){
         toast('XAMAN BACKEND NOT CONFIGURED','#ff4b6e');
         const link = $('#install-xaman');
@@ -1000,8 +1033,10 @@
         toast('SIGN-IN CANCELLED','#ff4b6e');
       } else if (msg === 'XUMM_TIMEOUT'){
         toast('SIGN-IN TIMED OUT','#ff4b6e');
+      } else if (msg === 'XUMM_NO_AUTH' || msg === 'XUMM_NO_ACCOUNT' || msg === 'XUMM_SDK_MISSING'){
+        toast('XAMAN CONNECTION FAILED','#ff4b6e');
       } else {
-        toast('CONNECTION FAILED','#ff4b6e');
+        toast('CONNECTION FAILED: '+msg,'#ff4b6e');
       }
     }
   }
@@ -1152,9 +1187,27 @@
     $('#btn-minigame').addEventListener('click', openMinigame);
   }
 
+  // ---------- Login mascot face cycling ----------
+  function startLoginMascotAnimation(){
+    const faces = ['◔◡◕', '◕‿◕', '◕◡◕', '◔‿◔', '◔◡◕', '◕u◕'];
+    let idx = 0;
+    setInterval(() => {
+      const el = document.getElementById('login-mascot-face');
+      // Only animate while still on the login screen
+      if (!el || !el.offsetParent) return;
+      idx = (idx + 1) % faces.length;
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.textContent = faces[idx];
+        el.style.opacity = '1';
+      }, 150);
+    }, 2200);
+  }
+
   // ---------- Bootstrap ----------
   function init(){
     setupAudioBar();
+    startLoginMascotAnimation();
 
     // Auto-load the music manifest from ./music/tracks.json (if any).
     const cfg = window.TAMA_CONFIG || {};
@@ -1196,11 +1249,14 @@
         if (btn.dataset.provider === preferred) badge.classList.remove('hidden');
         else                                     badge.classList.add('hidden');
       });
-      // Disable Xaman if no backend is configured (it can't work without one)
+      // Xaman is available if EITHER:
+      //   - XAMAN_APP_KEY is set (client-side PKCE, no backend),
+      //   - OR API_BASE_URL is set (legacy backend flow).
       const apiUrl = (window.TAMA_CONFIG && window.TAMA_CONFIG.API_BASE_URL) || '';
-      if (!apiUrl && xaman){
+      const xamanKey = (window.TAMA_CONFIG && window.TAMA_CONFIG.XAMAN_APP_KEY) || '';
+      if (!apiUrl && !xamanKey && xaman){
         xaman.classList.add('disabled');
-        xaman.title = 'Backend API required — set API_BASE_URL in config.js';
+        xaman.title = 'Set XAMAN_APP_KEY in config.js to enable Xaman (get one at apps.xaman.dev)';
       }
     }
 
