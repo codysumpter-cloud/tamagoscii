@@ -60,15 +60,17 @@ desktop.ini
 coverage/
 .nyc_output/
 
-# ============ Music (let user decide) ============
-music/*.mp3
-music/*.ogg
-music/*.wav
-music/*.m4a
-music/*.flac
-!music/README.md
-!music/tracks.json
-!music/.gitkeep
+# ============ Music ============
+# Music files are tracked in this repo (user-uploaded).
+# If you switch to CDN-hosted tracks, you can uncomment these:
+# music/*.mp3
+# music/*.ogg
+# music/*.wav
+# music/*.m4a
+# music/*.flac
+# !music/README.md
+# !music/tracks.json
+# !music/.gitkeep
 
 # ============ Secrets / keys ============
 *.pem

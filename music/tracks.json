@@ -1,1 +1,9 @@
-[]
+[
+  { "title": "Pixel Dream",      "file": "Pixel-Dream.mp3" },
+  { "title": "Flower Groover",   "file": "Flower-Groover.mp3" },
+  { "title": "Psycho Dimension", "file": "Psycho-Dimension.mp3" },
+  { "title": "Rayon Cupidon",    "file": "Rayon-Cupidon.mp3" },
+  { "title": "Gob X",            "file": "Gob-X.mp3" },
+  { "title": "Lobster",          "file": "Lobster.mp3" },
+  { "title": "Wknd",             "file": "Wknd.mp3" }
+]
